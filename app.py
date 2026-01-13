@@ -15,16 +15,13 @@ st.markdown("""
     [data-testid="stDataFrame"] {
         direction: RTL;
     }
-    [data-testid="stTable"] {
-        direction: RTL;
-    }
     /* יישור תפריט הצידי */
     section[data-testid="stSidebar"] {
         direction: RTL;
         text-align: right;
     }
     </style>
-    """, unsafe_content_label=True)
+    """, unsafe_allow_html=True)
 
 # חיבור למפתח מתוך ה-Secrets של Streamlit
 info = json.loads(st.secrets["gcp_service_account"]["json_data"])
@@ -100,45 +97,3 @@ def run_query():
             WHERE gms.season = {season}
               AND gms.comp_id = {comp_id}
               AND gms.week BETWEEN {week_start} AND {week_end}
-            GROUP BY season, team, gms.comp_id, dct.pts
-        ) as t0
-        LEFT JOIN (SELECT season, team, max(plf) plf FROM `table.srtdgms` WHERE comp_id={comp_id} GROUP BY season, team) as plf
-          ON t0.team=plf.team AND t0.season=plf.season
-        LEFT JOIN `table.teams` as tms ON t0.team=tms.team_id
-        ORDER BY rk
-        {limit_sql}
-        """
-    else:
-        QUERY = f"""
-            SELECT scorrer, count(scorrer) as goals_count
-            FROM `table.degoals`
-            WHERE 1=1
-              {winner_condition}
-              AND season BETWEEN {season_start} AND {season_end}
-              AND comp_id = {comp_id}
-              AND order_type = '{order_type}'
-              AND scorrer NOT IN ({names_list})
-            GROUP BY scorrer
-            ORDER BY goals_count DESC
-            {limit_sql}
-        """
-    
-    try:
-        query_job = client.query(QUERY)
-        results = query_job.to_dataframe()
-        if not results.empty:
-            if query_type == "טבלת ליגה":
-                # הצגת הטבלה עם הצבעים
-                st.dataframe(color_league_table(results), use_container_width=True, hide_index=True)
-            else:
-                st.dataframe(results, use_container_width=True, hide_index=True)
-        else:
-            st.warning("לא נמצאו תוצאות")
-    except Exception as e:
-        st.error(f"שגיאה: {e}")
-
-if query_type == "טבלת ליגה":
-    run_query()
-else:
-    if st.sidebar.button("הריץ שאילתה"):
-        run_query()
