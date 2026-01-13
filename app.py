@@ -20,6 +20,12 @@ st.markdown("""
         display: flex;
         justify-content: flex-start;
     }
+    canvas {
+    direction: ltr;
+}
+div[data-interactable="true"] {
+    direction: rtl;
+}
     </style>
     """, unsafe_allow_html=True)
 
