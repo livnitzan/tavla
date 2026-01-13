@@ -1,25 +1,19 @@
 import streamlit as st
 from google.cloud import bigquery
-from google.oauth2 import service_account
-import json
+import os
 
-# הגדרת יישור לימין לכל האפליקציה
+# --- הגדרות יישור לימין (RTL) ---
 st.markdown("""
     <style>
-    .main {
-        direction: RTL;
-        text-align: right;
-    }
-    div.stButton > button:first-child {
-        direction: RTL;
-    }
+    .main { direction: RTL; text-align: right; }
+    [data-testid="stDataFrame"] { direction: RTL; }
+    section[data-testid="stSidebar"] { direction: RTL; text-align: right; }
     </style>
-    """, unsafe_content_label=True)
+    """, unsafe_allow_html=True)
 
-# חיבור למפתח מתוך ה-Secrets של Streamlit
-info = json.loads(st.secrets["gcp_service_account"]["json_data"])
-credentials = service_account.Credentials.from_service_account_info(info)
-client = bigquery.Client(credentials=credentials, project=info['project_id'])
+# חיבור למפתח - בדיוק כפי ששלחת
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "creds.json"
+client = bigquery.Client()
 
 # תפריט צידי
 st.sidebar.title("תפריט שאילתות")
@@ -53,81 +47,3 @@ else:
     names_list = ", ".join([f"'{name.strip()}'" for name in excluded_names.split(",")])
     
     limit_options = [5, 10, 20, 50, 100, "ללא הגבלה"]
-    limit_choice = st.sidebar.selectbox("כמות תוצאות להצגה:", limit_options, index=1)
-
-limit_sql = "" if limit_choice == "ללא הגבלה" else f"LIMIT {limit_choice}"
-
-# פונקציית צביעה לטבלת ליגה
-def color_league_table(df):
-    colors = ['' for _ in range(len(df))]
-    if len(df) > 0:
-        colors[0] = 'background-color: #ADD8E6' 
-        if len(df) >= 2:
-            colors[-1] = 'background-color: #FFB6C1'
-            colors[-2] = 'background-color: #FFB6C1'
-    return df.style.apply(lambda x: colors, axis=0)
-
-def run_query():
-    if query_type == "טבלת ליגה":
-        QUERY = f"""
-        SELECT row_number() over (partition by t0.season order by plf.plf, pts desc, gdf desc, Ws desc, gf desc) as rk
-                ,case when ddct=0 then tms.team else concat(tms.team || " (*)") end as team
-                ,Ws, Ds, Ls, gf, ga, gdf, pts
-        FROM (
-            SELECT gms.season, gms.team, count(gms.team) as games
-                  ,sum(case when date < current_date() and res="W" then 1 else 0 end) as Ws
-                  ,sum(case when date < current_date() and res="D" then 1 else 0 end) as Ds
-                  ,sum(case when date < current_date() and res="L" then 1 else 0 end) as Ls
-                  ,sum(gf) as gf, sum(ga) as ga, sum(gf)-sum(ga) as gdf
-                  ,cast(ceil(sum(case 
-                        when date < current_date() and res="W" then (case when gms.season>1982 then (case when gms.season in (2010, 2011) and plf=10 then 1.5 else 3 end) else 2 end)
-                        when date < current_date() and res="D" then (case when gms.forfeit=true then 0 else (case when gms.season in (2010, 2011) and plf=10 then 0.5 else 1 end) end)
-                        else 0 end) - coalesce(dct.pts, 0)) as int64) as pts
-                  ,coalesce(dct.pts, 0) as ddct
-            FROM `table.srtdgms` as gms
-            LEFT JOIN (SELECT season, team, sum(pts) as pts FROM `table.ddctn` GROUP BY season, team) as dct
-              ON gms.season=dct.season AND gms.team=dct.team
-            WHERE gms.season = {season}
-              AND gms.comp_id = {comp_id}
-              AND gms.week BETWEEN {week_start} AND {week_end}
-            GROUP BY season, team, gms.comp_id, dct.pts
-        ) as t0
-        LEFT JOIN (SELECT season, team, max(plf) plf FROM `table.srtdgms` WHERE comp_id={comp_id} GROUP BY season, team) as plf
-          ON t0.team=plf.team AND t0.season=plf.season
-        LEFT JOIN `table.teams` as tms ON t0.team=tms.team_id
-        ORDER BY rk
-        {limit_sql}
-        """
-    else:
-        QUERY = f"""
-            SELECT scorrer, count(scorrer) as goals_count
-            FROM `table.degoals`
-            WHERE 1=1
-              {winner_condition}
-              AND season BETWEEN {season_start} AND {season_end}
-              AND comp_id = {comp_id}
-              AND order_type = '{order_type}'
-              AND scorrer NOT IN ({names_list})
-            GROUP BY scorrer
-            ORDER BY goals_count DESC
-            {limit_sql}
-        """
-    
-    try:
-        query_job = client.query(QUERY)
-        results = query_job.to_dataframe()
-        if not results.empty:
-            if query_type == "טבלת ליגה":
-                st.dataframe(color_league_table(results), use_container_width=True, hide_index=True)
-            else:
-                st.dataframe(results, use_container_width=True, hide_index=True)
-        else:
-            st.warning("לא נמצאו תוצאות")
-    except Exception as e:
-        st.error(f"שגיאה: {e}")
-
-if query_type == "טבלת ליגה":
-    run_query()
-else:
-    if st.sidebar.button("הריץ שאילתה"):
-        run_query()
