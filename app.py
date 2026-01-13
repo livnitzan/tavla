@@ -1,10 +1,25 @@
 import streamlit as st
 from google.cloud import bigquery
-import os
+from google.oauth2 import service_account
+import json
 
-# חיבור למפתח
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "creds.json"
-client = bigquery.Client()
+# הגדרת יישור לימין לכל האפליקציה
+st.markdown("""
+    <style>
+    .main {
+        direction: RTL;
+        text-align: right;
+    }
+    div.stButton > button:first-child {
+        direction: RTL;
+    }
+    </style>
+    """, unsafe_content_label=True)
+
+# חיבור למפתח מתוך ה-Secrets של Streamlit
+info = json.loads(st.secrets["gcp_service_account"]["json_data"])
+credentials = service_account.Credentials.from_service_account_info(info)
+client = bigquery.Client(credentials=credentials, project=info['project_id'])
 
 # תפריט צידי
 st.sidebar.title("תפריט שאילתות")
@@ -44,23 +59,12 @@ limit_sql = "" if limit_choice == "ללא הגבלה" else f"LIMIT {limit_choice
 
 # פונקציית צביעה לטבלת ליגה
 def color_league_table(df):
-    # יצירת העתק של הטבלה לצורך עיצוב (סטייל)
-    style_df = df.copy()
-    # צבע ברירת מחדל (ריק)
     colors = ['' for _ in range(len(df))]
-    
     if len(df) > 0:
-        # שורה ראשונה - כחול בהיר
         colors[0] = 'background-color: #ADD8E6' 
-        
-        # שתי שורות אחרונות - אדום בהיר
         if len(df) >= 2:
             colors[-1] = 'background-color: #FFB6C1'
             colors[-2] = 'background-color: #FFB6C1'
-        elif len(df) == 1: # אם יש רק שורה אחת, היא תישאר כחולה
-            pass
-
-    # החלת הצבעים על כל השורות
     return df.style.apply(lambda x: colors, axis=0)
 
 def run_query():
@@ -114,7 +118,6 @@ def run_query():
         results = query_job.to_dataframe()
         if not results.empty:
             if query_type == "טבלת ליגה":
-                # הפעלת פונקציית הצביעה
                 st.dataframe(color_league_table(results), use_container_width=True, hide_index=True)
             else:
                 st.dataframe(results, use_container_width=True, hide_index=True)
