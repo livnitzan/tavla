@@ -3,6 +3,29 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 import json
 
+# הגדרות עיצוב ליישור העמוד והטבלאות מימין לשמאל (RTL)
+st.markdown("""
+    <style>
+    /* יישור כללי של העמוד לימין */
+    .main {
+        direction: RTL;
+        text-align: right;
+    }
+    /* הפיכת כיוון הטבלאות מימין לשמאל */
+    [data-testid="stDataFrame"] {
+        direction: RTL;
+    }
+    [data-testid="stTable"] {
+        direction: RTL;
+    }
+    /* יישור תפריט הצידי */
+    section[data-testid="stSidebar"] {
+        direction: RTL;
+        text-align: right;
+    }
+    </style>
+    """, unsafe_content_label=True)
+
 # חיבור למפתח מתוך ה-Secrets של Streamlit
 info = json.loads(st.secrets["gcp_service_account"]["json_data"])
 credentials = service_account.Credentials.from_service_account_info(info)
@@ -46,16 +69,12 @@ limit_sql = "" if limit_choice == "ללא הגבלה" else f"LIMIT {limit_choice
 
 # פונקציית צביעה לטבלת ליגה
 def color_league_table(df):
-    style_df = df.copy()
     colors = ['' for _ in range(len(df))]
-    
     if len(df) > 0:
         colors[0] = 'background-color: #ADD8E6' 
-        
         if len(df) >= 2:
             colors[-1] = 'background-color: #FFB6C1'
             colors[-2] = 'background-color: #FFB6C1'
-    
     return df.style.apply(lambda x: colors, axis=0)
 
 def run_query():
@@ -109,6 +128,7 @@ def run_query():
         results = query_job.to_dataframe()
         if not results.empty:
             if query_type == "טבלת ליגה":
+                # הצגת הטבלה עם הצבעים
                 st.dataframe(color_league_table(results), use_container_width=True, hide_index=True)
             else:
                 st.dataframe(results, use_container_width=True, hide_index=True)
