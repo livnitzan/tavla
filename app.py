@@ -76,7 +76,7 @@ def color_league_table(df):
 
 def run_query():
     if query_type == "טבלת ליגה":
-        QUERY = f'''
+        QUERY = f"""
         SELECT row_number() over (partition by t0.season order by plf.plf, pts desc, gdf desc, Ws desc, gf desc) as rk
                 ,case when ddct=0 then tms.team else concat(tms.team || " (*)") end as team
                 ,Ws, Ds, Ls, gf, ga, gdf, pts
@@ -97,3 +97,4 @@ def run_query():
             WHERE gms.season = {season}
               AND gms.comp_id = {comp_id}
               AND gms.week BETWEEN {week_start} AND {week_end}
+"""
