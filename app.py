@@ -88,4 +88,5 @@ def run_query():
             FROM `table.srtdgms` as gms
             LEFT JOIN (SELECT season, team, sum(pts) as pts FROM `table.ddctn` GROUP BY season, team) as dct
               ON gms.season=dct.season AND gms.team=dct.team
-            WHERE gms.season = {season
+            WHERE gms.season = {season}
+            """
