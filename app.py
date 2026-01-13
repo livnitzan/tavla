@@ -9,13 +9,16 @@ from google.oauth2 import service_account
 # הגדרת יישור לימין לכל הטבלאות
 st.markdown("""
     <style>
-    /* הפיכת כיוון הטבלה והעמודות */
-    [data-testid="stDataFrame"] > div {
+    /* הפיכת כיוון האתר כולו */
+    .stApp {
         direction: RTL;
+        text-align: right;
     }
-    /* יישור הטקסט בתוך התאים לימין */
-    [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th {
-        text-align: right !important;
+    /* טיפול ספציפי בטבלאות כדי לוודא שהן נצמדות לימין */
+    [data-testid="stDataFrame"] {
+        direction: RTL;
+        display: flex;
+        justify-content: flex-start;
     }
     </style>
     """, unsafe_allow_html=True)
