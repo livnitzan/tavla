@@ -6,6 +6,16 @@ import os
 import json
 from google.oauth2 import service_account
 
+# הגדרת יישור לימין לכל הטבלאות
+st.markdown("""
+    <style>
+    [data-testid="stDataFrame"] {
+        direction: RTL;
+        text-align: right;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # חיבור למפתח מתוך ה-Secrets של Streamlit
 info = json.loads(st.secrets["gcp_service_account"]["json_data"])
 credentials = service_account.Credentials.from_service_account_info(info)
