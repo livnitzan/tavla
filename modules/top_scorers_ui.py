@@ -1,6 +1,6 @@
 import streamlit as st
 
-def show_tpscr_interface(client, sql_template, get_season_data, get_filter_options, reset_params):
+def show_scorers_interface(client, sql_template, get_season_data, get_filter_options, reset_params):
     season_dict = get_season_data()
     season_options = sorted(list(season_dict.keys()), reverse=True)
     team_opts, stadium_opts = get_filter_options()
