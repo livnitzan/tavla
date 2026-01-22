@@ -12,7 +12,7 @@ def apply_custom_style():
         </style>
     """, unsafe_allow_html=True)
 
-def get_season_data(client, season, league=None):
+def get_season_data(client, season):
     """
     פונקציה מרכזית לשליפת נתוני עונה. 
     המודולים שלך (הטבלה ומלכי השערים) קוראים לה כדי לקבל את הבסיס.
