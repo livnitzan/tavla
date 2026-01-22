@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-def show_league_table_interface(client, sql_template, get_season_data):
+def show_table_interface(client, sql_template, get_season_data):
     st.title("🏆 טבלת הליגה")
 
     # CSS מעודכן עם תיקון לסימן המינוס
