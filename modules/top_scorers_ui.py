@@ -1,3 +1,6 @@
+import streamlit as st
+
+
 def show_scorers_interface(client, sql_template, get_season_data, get_filter_options, reset_params):
     # תיקון קריטי: שליחת ה-client לפונקציות כדי למנוע NameError ו-TypeError
     try:
