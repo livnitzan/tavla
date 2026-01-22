@@ -1,10 +1,14 @@
-import streamlit as st
-from .logic import get_season_data
-
 def show_scorers_interface(client, sql_template, get_season_data, get_filter_options, reset_params):
-    season_dict = get_season_data()
-    season_options = sorted(list(season_dict.keys()), reverse=True)
-    team_opts, stadium_opts = get_filter_options()
+    # תיקון קריטי: שליחת ה-client לפונקציות כדי למנוע NameError ו-TypeError
+    try:
+        # כאן אנחנו קוראים לנתונים עם ה-client (במחשב זה כנראה עבד גלובלית, בענן חייב להיות מפורש)
+        season_dict = get_season_data(client) 
+        season_options = sorted(list(season_dict.keys()), reverse=True)
+        # שליחת הנתונים שחזרו כדי להוציא את רשימת הקבוצות והאצטדיונים
+        team_opts, stadium_opts = get_filter_options(client) 
+    except Exception as e:
+        st.error(f"שגיאה בטעינת נתוני בסיס: {e}")
+        return
 
     st.subheader("פילטרים - טבלת כובשים")
     c1, c2, c3, c4 = st.columns(4)
@@ -27,8 +31,11 @@ def show_scorers_interface(client, sql_template, get_season_data, get_filter_opt
         sel_comps = st.multiselect("מפעלים:", ["ליגת העל", "גביע המדינה", "אירופה", "נבחרת"], default=["ליגת העל"], key='comp_select')
         comp_map = {"ליגת העל": [10], "גביע המדינה": [11], "אירופה": list(range(20,30)), "נבחרת": list(range(30,100))}
         comp_ids = ",".join(map(str, [idx for c in sel_comps for idx in comp_map[c]])) if sel_comps else "10"
+        
+        # שימוש ב-team_opts שחזר מה-logic
         sel_tms = st.multiselect("קבוצה כובשת:", list(team_opts.keys()), key='team_select')
         t_filter = f"gls.team IN ({','.join([str(team_opts[t]) for t in sel_tms])})" if sel_tms else "1=1"
+        
         sel_opps = st.multiselect("יריבה:", list(team_opts.keys()), key='opp_select')
         opp_filter = f"gls.rival IN ({','.join([str(team_opts[o]) for o in sel_opps])})" if sel_opps else "1=1"
 
@@ -36,8 +43,10 @@ def show_scorers_interface(client, sql_template, get_season_data, get_filter_opt
         lctn_choice = st.radio("מיקום משחק:", ["הכל", "בית", "חוץ"], horizontal=True, key='lctn_select')
         lctn_map = {"בית": "H", "חוץ": "A"}
         lctn_filter = f"gms.lctn = '{lctn_map[lctn_choice]}'" if lctn_choice != "הכל" else "1=1"
+        
         sel_stads = st.multiselect("אצטדיון:", list(stadium_opts.keys()), key='stadium_select')
         stadium_filter = f"gls.stad_id IN ({','.join([str(stadium_opts[s]) for s in sel_stads])})" if sel_stads else "1=1"
+        
         side_choice = st.selectbox("צד באצטדיון:", ["הכל", "צפוני", "דרומי", "מזרחי", "מערבי"], key='side_select')
         side_map = {"צפוני": "n", "דרומי": "s", "מזרחי": "e", "מערבי": "w"}
         side_filter = f"LOWER(gls.side) = '{side_map[side_choice]}'" if side_choice != "הכל" else "1=1"
@@ -45,8 +54,10 @@ def show_scorers_interface(client, sql_template, get_season_data, get_filter_opt
     with c4:
         player_search = st.text_input("חפש שחקן:", "", key='player_search')
         p_filter = f"gls.scorrer LIKE '%{player_search}%'" if player_search else "1=1"
+        
         limit_choice = st.selectbox("כמות תוצאות:", [20, 50, 100, "ללא הגבלה"], key='limit_select')
         l_str = f"LIMIT {limit_choice}" if limit_choice != "ללא הגבלה" else ""
+        
         show_det = "TRUE" if st.checkbox("הצג פירוט קבוצות", key='show_det_cb') else "FALSE"
         own_g = "1=1" if st.checkbox("כלול שערים עצמיים", key='own_g_cb') else "gls.scorrer != 'עצמי'"
 
@@ -55,10 +66,13 @@ def show_scorers_interface(client, sql_template, get_season_data, get_filter_opt
     with b1: 
         execute = st.button("🚀 הרץ שאילתה")
     with b2: 
-        if st.button("🗑️ ניקוי פרמטרים"): reset_params()
+        if st.button("🗑️ ניקוי פרמטרים"): 
+            reset_params()
+            st.rerun() # מוודא שהדף מתרענן אחרי הניקוי
 
     if execute:
         try:
+            # שימוש ב-.format() כפי שכתבת במקור
             final_sql = sql_template.format(
                 season_start=s_start, season_end=s_end, 
                 week_start=w_start, week_end=w_end, 
