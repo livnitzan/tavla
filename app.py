@@ -1,7 +1,7 @@
 import streamlit as st
 from google.cloud import bigquery
 from google.oauth2 import service_account
-from modules.logic import get_season_data, get_filter_options
+from modules.logic import get_season_data, get_filter_options, reset_params
 import os
 
 # 1. הגדרות עמוד (RTL ופריסה רחבה)
