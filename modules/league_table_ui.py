@@ -1,3 +1,4 @@
+from .logic import get_season_data
 import streamlit as st
 import pandas as pd
 
