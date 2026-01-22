@@ -2,58 +2,75 @@ import streamlit as st
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import os
-import re
 
-# 1. הגדרות עמוד
+# 1. הגדרות עמוד (Layout רחב ותמיכה ב-RTL)
 st.set_page_config(
     page_title="Football Analytics System", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
 
-# 2. אתחול לקוח BigQuery עם ניקוי מפתח מתקדם
+def fix_private_key(key):
+    """
+    מתקן את פורמט המפתח הפרטי כדי שיתאים לסטנדרט PEM של גוגל.
+    מטפל בבעיות של סלאשים כפולים (\\n) ובפורמט שורה אחת שנוצר ב-Secrets.
+    """
+    if not key:
+        return None
+    
+    # החלפת מחרוזת ה-slash-n (כטקסט) בירידת שורה אמיתית
+    processed_key = key.replace("\\n", "\n")
+    
+    # ניקוי רווחים מיותרים בתחילה ובסוף
+    processed_key = processed_key.strip()
+    
+    # אם המפתח כבר נראה תקין (כולל מספר ירידות שורה), נחזיר אותו ככה
+    if processed_key.count("\n") > 5:
+        return processed_key
+        
+    # אם הוא הגיע כשורה אחת ארוכה, נבנה אותו מחדש בפורמט PEM תקין (64 תווים לשורה)
+    header = "-----BEGIN PRIVATE KEY-----"
+    footer = "-----END PRIVATE KEY-----"
+    
+    # חילוץ התוכן שבין הכותרות
+    content = processed_key.replace(header, "").replace(footer, "").replace("\n", "").strip()
+    
+    # פיצול תוכן המפתח לשורות של 64 תווים (סטנדרט PEM)
+    lines = [content[i:i+64] for i in range(0, len(content), 64)]
+    
+    return f"{header}\n" + "\n".join(lines) + f"\n{footer}\n"
+
 def get_bigquery_client():
+    """אתחול הלקוח של BigQuery תוך שימוש ב-Secrets של Streamlit"""
     if "gcp_service_account" in st.secrets:
-        info = dict(st.secrets["gcp_service_account"])
-        
-        # ניקוי המפתח הפרטי מכל מה שעלול לשבור Base64
-        if "private_key" in info:
-            pk = info["private_key"]
-            
-            # א. החלפת מחרוזת ה-slash-n בתו ירידת שורה
-            pk = pk.replace("\\n", "\n")
-            
-            # ב. ניקוי רווחים מיותרים בתחילת וסוף המפתח
-            pk = pk.strip()
-            
-            # ג. תיקון קריטי: הסרת רווחים/טאבים שאולי נכנסו בין שורות המפתח
-            # אנחנו שומרים על ירידות השורה אבל מנקים את מה שמסביבן
-            lines = pk.split('\n')
-            clean_lines = [line.strip() for line in lines if line.strip()]
-            info["private_key"] = '\n'.join(clean_lines)
-        
         try:
+            # יצירת דיקשנרי חדש מה-Secrets כדי לא לשנות את המקור
+            info = dict(st.secrets["gcp_service_account"])
+            
+            # תיקון המפתח הפרטי
+            info["private_key"] = fix_private_key(info.get("private_key", ""))
+            
+            # יצירת הרשאות
             credentials = service_account.Credentials.from_service_account_info(info)
             return bigquery.Client(credentials=credentials, project=info["project_id"])
         except Exception as e:
-            st.error(f"שגיאה באתחול ההרשאות: {e}")
+            st.error(f"❌ שגיאה באתחול ההרשאות: {e}")
             return None
     else:
-        try:
-            return bigquery.Client()
-        except:
-            st.error("לא נמצאו הרשאות. הגדר Secrets ב-Streamlit Cloud.")
-            return None
+        st.warning("⚠️ לא נמצאו Secrets תחת 'gcp_service_account'. וודא שהגדרת אותם בלוח הבקרה.")
+        return None
 
+# אתחול הלקוח
 client = get_bigquery_client()
 
-# 3. ייבוא מודולים
+# 2. ייבוא המודולים מתיקיית modules
+# וודא שבתיקיית modules קיימים הקבצים וקובץ __init__.py ריק
 try:
     from modules import streaks_ui, heavy_losses_ui, top_scorers_ui, league_table_ui
 except ImportError as e:
-    st.error(f"שגיאה בייבוא מודולים: {e}")
+    st.error(f"❌ שגיאה בייבוא מודולים: {e}. וודא שתיקיית modules קיימת ב-GitHub.")
 
-# 4. עזרים
+# 3. פונקציית עזר לטעינת שאילתות SQL מתיקיית sql
 def load_query(filename):
     query_path = os.path.join("sql", filename)
     if os.path.exists(query_path):
@@ -64,21 +81,45 @@ def load_query(filename):
 def reset_cache():
     st.cache_data.clear()
 
-# 5. תפריט ניווט
-st.sidebar.title("⚽ מערכת ניתוח")
-page = st.sidebar.radio("בחר כלי:", ["🔥 מנוע רצפים", "📉 תבוסות כבדות", "🏆 מלכי השערים", "📊 טבלת ליגה"])
+# 4. תפריט ניווט צדדי (Sidebar)
+st.sidebar.title("⚽ ניתוח כדורגל")
+st.sidebar.markdown("מערכת ניהול וסטטיסטיקה")
 
-# 6. הצגת תוכן
+page = st.sidebar.radio("בחר כלי ניתוח:", [
+    "🔥 מנוע רצפים", 
+    "📉 תבוסות כבדות", 
+    "🏆 מלכי השערים", 
+    "📊 טבלת ליגה"
+])
+
+# 5. הצגת התוכן לפי העמוד הנבחר
 if client:
     if page == "🔥 מנוע רצפים":
         sql = load_query("streaks.sql")
-        if sql: streaks_ui.show_streaks_interface(client, sql, reset_cache)
+        if sql:
+            streaks_ui.show_streaks_interface(client, sql, reset_cache)
+        else:
+            st.error("קובץ streaks.sql חסר בתיקיית sql")
+
     elif page == "📉 תבוסות כבדות":
         sql = load_query("heavy_losses.sql")
-        if sql: heavy_losses_ui.show_losses_interface(client, sql)
+        if sql:
+            heavy_losses_ui.show_losses_interface(client, sql)
+        else:
+            st.error("קובץ heavy_losses.sql חסר בתיקיית sql")
+
     elif page == "🏆 מלכי השערים":
         sql = load_query("top_scorers.sql")
-        if sql: top_scorers_ui.show_scorers_interface(client, sql)
+        if sql:
+            top_scorers_ui.show_scorers_interface(client, sql)
+        else:
+            st.error("קובץ top_scorers.sql חסר בתיקיית sql")
+
     elif page == "📊 טבלת ליגה":
         sql = load_query("league_table.sql")
-        if sql: league_table_ui.show_table_interface(client, sql)
+        if sql:
+            league_table_ui.show_table_interface(client, sql)
+        else:
+            st.error("קובץ league_table.sql חסר בתיקיית sql")
+else:
+    st.info("ממתין לחיבור תקין למסד הנתונים...")
