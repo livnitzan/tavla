@@ -1,7 +1,7 @@
 import streamlit as st
 
 
-def show_scorers_interface(client, sql_template, get_season_data, get_filter_options, reset_params):
+def show_scorers_interface(client, sql, get_season_data, get_filter_options, reset_params):
     season_dict = get_season_data(client, 2024) 
     
     season_options = sorted(list(season_dict.keys()), reverse=True)
