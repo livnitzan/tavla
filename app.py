@@ -1,43 +1,22 @@
 import streamlit as st
-from google.cloud import bigquery
-from google.oauth2 import service_account
 import os
 
-# הגדרות עמוד - זה חייב לרוץ ראשון כדי שהתפריט יופיע
+# 1. זה חייב להיות הדבר הראשון בקוד כדי שהתפריט יופיע
 st.set_page_config(page_title="Football Analytics", layout="wide")
 
-# פונקציית התיקון למפתח
-def fix_private_key(key):
-    if not key: return None
-    processed_key = key.replace("\\n", "\n").strip()
-    return processed_key if "-----BEGIN" in processed_key else f"-----BEGIN PRIVATE KEY-----\n{processed_key}\n-----END PRIVATE KEY-----"
-
-# חיבור ל-BigQuery
-def get_bigquery_client():
-    if "gcp_service_account" in st.secrets:
-        try:
-            info = dict(st.secrets["gcp_service_account"])
-            info["private_key"] = fix_private_key(info.get("private_key", ""))
-            credentials = service_account.Credentials.from_service_account_info(info)
-            return bigquery.Client(credentials=credentials, project=info["project_id"])
-        except Exception as e:
-            st.error(f"שגיאה בחיבור: {e}")
-    return None
-
-client = get_bigquery_client()
-
-# ייבוא בטוח - כדי שהתפריט לא ייעלם אם יש שגיאה במודולים
+# 2. ייבוא בטוח - אם המודולים שבורים, התפריט עדיין יופיע ותקבל הודעת שגיאה
 try:
     from modules import streaks_ui, heavy_losses_ui, top_scorers_ui, league_table_ui
     from modules.logic import get_season_data, get_filter_options, reset_params
 except Exception as e:
-    st.sidebar.error(f"שגיאה בטעינת מודולים: {e}")
-    # הגדרת פונקציות ריקות כדי שהקוד לא יקרוס
+    st.sidebar.error(f"⚠️ שגיאה בטעינת המודולים: {e}")
+    # הגדרת פונקציות "דמי" כדי שהקוד לא יקרוס בהמשך
     get_season_data = lambda *args: {}
     get_filter_options = lambda *args: ({}, {})
     reset_params = lambda: None
 
-# ציור התפריט - עכשיו הוא בטוח יופיע
+# 3. ציור התפריט - עכשיו הוא יופיע בכל מקרה
+st.sidebar.title("⚽ תפריט ניווט")
 page = st.sidebar.radio("בחר כלי ניתוח:", [
     "🔥 מנוע רצפים", 
     "📉 תבוסות כבדות", 
