@@ -12,7 +12,7 @@ def apply_custom_style():
         </style>
     """, unsafe_allow_html=True)
 
-get_season_data(client=None, season=2024):
+def get_season_data(client=None, season=2024):
     # אם לא נשלח client, נחזיר דיקשנרי ריק או ברירת מחדל כדי לא לקרוס
 
     where_clause = f"WHERE season = {season}"
