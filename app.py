@@ -66,7 +66,7 @@ page = st.sidebar.radio("בחר כלי:", [
 
 # 4. ניתוב לעמודים
 if client:
-    if page == "🔥 מנוע רצפים":
+if page == "🔥 מנוע רצפים":
         sql = load_query("streaks.sql")
         if sql:
             # מעבירים את reset_cache כפונקציה למודול
@@ -78,12 +78,12 @@ elif page == "📉 תבוסות כבדות":
             # וודא שבקובץ heavy_losses_ui.py הפונקציה נקראת כך:
             heavy_losses_ui.show_losses_interface(client, sql)
 
-    elif page == "🏆 מלכי השערים":
+elif page == "🏆 מלכי השערים":
         sql = load_query("top_scorers.sql")
         if sql:
             top_scorers_ui.show_scorers_interface(client, sql)
 
-    elif page == "📊 טבלת ליגה":
+elif page == "📊 טבלת ליגה":
         sql = load_query("league_table.sql")
         if sql:
             league_table_ui.show_table_interface(client, sql)
