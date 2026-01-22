@@ -12,7 +12,10 @@ def apply_custom_style():
         </style>
     """, unsafe_allow_html=True)
 
-def get_season_data(client, season):
+get_season_data(client=None, season=2024):
+    # אם לא נשלח client, נחזיר דיקשנרי ריק או ברירת מחדל כדי לא לקרוס
+    if client is None:
+        return {2024: 36, 2023: 36, 2022: 36}
     """
     פונקציה מרכזית לשליפת נתוני עונה. 
     המודולים שלך (הטבלה ומלכי השערים) קוראים לה כדי לקבל את הבסיס.
