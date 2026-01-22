@@ -63,7 +63,7 @@ if client:
 
     elif page == "🏆 מלכי השערים":
         sql = load_query("top_scorers.sql")
-        if sql: top_scorers_ui.show_scorers_interface(client, sql_template, get_season_data, get_filter_options, reset_params)
+        if sql: top_scorers_ui.show_scorers_interface(client, sql)
 
     elif page == "📊 טבלת ליגה":
         sql = load_query("league_table.sql")
