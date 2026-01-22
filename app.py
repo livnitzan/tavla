@@ -79,11 +79,11 @@ if client:
     elif page == "🏆 מלכי השערים":
         sql = load_query("top_scorers.sql")
         if sql:
-            top_scorers_ui.show_scorers_interface(client, sql)
+            top_scorers_ui.show_scorers_interface(client, sql, reset_cache)
 
     elif page == "📊 טבלת ליגה":
         sql = load_query("league_table.sql")
         if sql:
-            league_table_ui.show_table_interface(client, sql)
+            league_table_ui.show_table_interface(client, sql, reset_cache)
 else:
     st.warning("⚠️ לא ניתן להתחבר ל-BigQuery. וודא שהגדרת Secrets כראוי.")
