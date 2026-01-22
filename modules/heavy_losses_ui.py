@@ -1,6 +1,6 @@
 import streamlit as st
 
-def show_heavy_losses_interface(client, sql_template):
+def show_losses_interface(client, sql_template):
     st.subheader("בונה קריטריונים לניתוח")
     
     # אתחול רשימת התנאים בתוך הפונקציה אם לא קיימת
