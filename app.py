@@ -24,6 +24,7 @@ def fix_private_key(key):
     return f"{header}\n" + "\n".join(lines) + f"\n{footer}\n"
 
 def get_bigquery_client():
+    """אתחול הלקוח של BigQuery תוך שימוש ב-Secrets של Streamlit"""
     if "gcp_service_account" in st.secrets:
         try:
             info = dict(st.secrets["gcp_service_account"])
@@ -38,12 +39,12 @@ def get_bigquery_client():
 client = get_bigquery_client()
 
 # 2. ייבוא המודולים מתיקיית modules
-# שים לב: הסרנו את הקריאה ל-logic כי הכל נמצא בתוך המודולים האלו
 try:
     from modules import streaks_ui, heavy_losses_ui, top_scorers_ui, league_table_ui
 except ImportError as e:
-    st.error(f"❌ שגיאה בייבוא מודולים: {e}. וודא שתיקיית modules קיימת ובתוכה קובץ __init__.py ריק.")
+    st.error(f"❌ שגיאה בייבוא מודולים: {e}")
 
+# 3. פונקציית עזר לטעינת שאילתות SQL
 def load_query(filename):
     query_path = os.path.join("sql", filename)
     if os.path.exists(query_path):
@@ -51,31 +52,28 @@ def load_query(filename):
             return f.read()
     return None
 
-# פונקציית עזר לרענון מטמון
 def reset_cache():
     st.cache_data.clear()
 
-# 3. תפריט ניווט צדדי
-st.sidebar.title("⚽ מערכת ניתוח")
-page = st.sidebar.radio("בחר כלי:", [
+# 4. תפריט ניווט צדדי
+st.sidebar.title("⚽ מערכת ניתוח נתונים")
+page = st.sidebar.radio("בחר כלי ניתוח:", [
     "🔥 מנוע רצפים", 
     "📉 תבוסות כבדות", 
     "🏆 מלכי השערים", 
     "📊 טבלת ליגה"
 ])
 
-# 4. ניתוב לעמודים
+# 5. ניתוב לעמודים (וודא ששמות הפונקציות זהים בקבצי ה-UI)
 if client:
     if page == "🔥 מנוע רצפים":
         sql = load_query("streaks.sql")
         if sql:
-            # מעבירים את reset_cache כפונקציה למודול
             streaks_ui.show_streaks_interface(client, sql, reset_cache)
-            
+
     elif page == "📉 תבוסות כבדות":
         sql = load_query("heavy_losses.sql")
         if sql:
-            # וודא שבקובץ heavy_losses_ui.py הפונקציה נקראת כך:
             heavy_losses_ui.show_losses_interface(client, sql)
 
     elif page == "🏆 מלכי השערים":
@@ -88,4 +86,4 @@ if client:
         if sql:
             league_table_ui.show_table_interface(client, sql)
 else:
-    st.warning("המתנה לחיבור BigQuery. וודא שהגדרת Secrets.")
+    st.warning("⚠️ לא ניתן להתחבר ל-BigQuery. וודא שהגדרת Secrets כראוי.")
