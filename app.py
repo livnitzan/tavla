@@ -72,16 +72,17 @@ if client:
             # מעבירים את reset_cache כפונקציה למודול
             streaks_ui.show_streaks_interface(client, sql, reset_cache)
             
-    elif page == "📉 תבוסות כבדות":
+elif page == "📉 תבוסות כבדות":
         sql = load_query("heavy_losses.sql")
         if sql:
+            # וודא שבקובץ heavy_losses_ui.py הפונקציה נקראת כך:
             heavy_losses_ui.show_losses_interface(client, sql)
-            
+
     elif page == "🏆 מלכי השערים":
         sql = load_query("top_scorers.sql")
         if sql:
             top_scorers_ui.show_scorers_interface(client, sql)
-            
+
     elif page == "📊 טבלת ליגה":
         sql = load_query("league_table.sql")
         if sql:
