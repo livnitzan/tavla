@@ -2,16 +2,14 @@ import streamlit as st
 
 
 def show_scorers_interface(client, sql_template, get_season_data, get_filter_options, reset_params):
-    # תיקון קריטי: שליחת ה-client לפונקציות כדי למנוע NameError ו-TypeError
-    try:
-        # כאן אנחנו קוראים לנתונים עם ה-client (במחשב זה כנראה עבד גלובלית, בענן חייב להיות מפורש)
-        season_dict = get_season_data(client) 
-        season_options = sorted(list(season_dict.keys()), reverse=True)
-        # שליחת הנתונים שחזרו כדי להוציא את רשימת הקבוצות והאצטדיונים
-        team_opts, stadium_opts = get_filter_options(client) 
-    except Exception as e:
-        st.error(f"שגיאה בטעינת נתוני בסיס: {e}")
-        return
+    # שים לב לשינוי כאן: אנחנו שולחים את ה-client ואת עונה 2024 כברירת מחדל לטעינה הראשונית
+    # אם אתה רוצה שהעונה הראשונה תהיה דינמית, נשתמש ב-2024 כ-fallback
+    season_dict = get_season_data(client, 2024) 
+    
+    season_options = sorted(list(season_dict.keys()), reverse=True)
+    
+    # גם כאן, אנחנו חייבים לשלוח את ה-client כדי שהלוגיקה תדע מאיפה להביא את הקבוצות
+    team_opts, stadium_opts = get_filter_options(client)
 
     st.subheader("פילטרים - טבלת כובשים")
     c1, c2, c3, c4 = st.columns(4)
