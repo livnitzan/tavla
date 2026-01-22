@@ -79,14 +79,7 @@ if client:
     elif page == "🏆 מלכי השערים":
         sql = load_query("top_scorers.sql")
         if sql:
-            # וודא שהפונקציות האלו קיימות אצלך או מוגדרות ב-logic
-            top_scorers_ui.show_scorers_interface(
-                client, 
-                sql, 
-                get_season_data=None, # כאן צריך להעביר את הפונקציה הממשית אם יש כזו
-                get_filter_options=None, 
-                reset_params=reset_cache
-            )
+            top_scorers_ui.show_scorers_interface(client, sql_template, get_season_data)
 
     elif page == "📊 טבלת ליגה":
         sql = load_query("league_table.sql")
