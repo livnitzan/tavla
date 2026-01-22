@@ -1,4 +1,5 @@
 import streamlit as st
+from .logic import get_season_data
 
 def show_scorers_interface(client, sql_template, get_season_data, get_filter_options, reset_params):
     season_dict = get_season_data()
