@@ -2,8 +2,6 @@ import streamlit as st
 
 
 def show_scorers_interface(client, sql_template, get_season_data, get_filter_options, reset_params):
-    # שים לב לשינוי כאן: אנחנו שולחים את ה-client ואת עונה 2024 כברירת מחדל לטעינה הראשונית
-    # אם אתה רוצה שהעונה הראשונה תהיה דינמית, נשתמש ב-2024 כ-fallback
     season_dict = get_season_data(client, 2024) 
     
     season_options = sorted(list(season_dict.keys()), reverse=True)
