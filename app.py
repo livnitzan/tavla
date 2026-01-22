@@ -109,7 +109,7 @@ if client:
             st.error("קובץ heavy_losses.sql חסר בתיקיית sql")
 
     elif page == "🏆 מלכי השערים":
-        sql = load_query("top_scorers.sql")
+        sql = load_query("tpscr.sql")
         if sql:
             top_scorers_ui.show_scorers_interface(client, sql)
         else:
