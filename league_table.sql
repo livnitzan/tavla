@@ -13,7 +13,7 @@ WITH RawGames AS (
       AND s.comp_id = 10 
       AND s.week <= {max_week}
       -- תיקו סוג הנתונים: השוואה בין TIMESTAMP ל-TIMESTAMP
-      AND CAST(s.date AS TIMESTAMP) <= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 150 MINUTE)
+      AND TIMESTAMP(DATETIME(s.date, COALESCE(s.time, TIME '00:00:00'))) <= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 135 MINUTE)
 ),
 MaxDate AS (
     SELECT MAX(date) as last_game_date FROM RawGames
