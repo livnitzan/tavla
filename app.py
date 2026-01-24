@@ -3,6 +3,8 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 import os
 import glob
+import base64
+
 
 # 1. הגדרות דף - חייב להיות ראשון
 st.set_page_config(page_title="מערכת נתוני כדורגל", layout="wide")
@@ -15,6 +17,26 @@ from streaks_ui import show_streaks_interface
 from league_table_ui import show_league_table_interface 
 
 apply_custom_style()
+
+# --- הוספת הלוגו ל-Favicon ול-iPhone ---
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+try:
+    bin_str = get_base64_of_bin_file('logo.png')
+    st.markdown(f"""
+        <head>
+            <link rel="icon" href="data:image/png;base64,{bin_str}">
+            <link rel="apple-touch-icon" href="data:image/png;base64,{bin_str}">
+        </head>
+    """, unsafe_allow_html=True)
+except FileNotFoundError:
+    pass # אם הקובץ עדיין לא שם, האפליקציה לא תקרוס
+
+apply_custom_style()
+
 
 # 2. חיבור ל-BigQuery (מותאם לענן)
 def get_bigquery_client():
