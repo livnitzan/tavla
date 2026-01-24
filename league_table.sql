@@ -13,7 +13,6 @@ WITH RawGames AS (
       AND s.comp_id = 10 
       AND s.week <= {max_week}
       -- תיקו סוג הנתונים: השוואה בין TIMESTAMP ל-TIMESTAMP
-      AND TIMESTAMP(DATETIME(s.date, COALESCE(s.time, TIME '00:00:00'))) <= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 135 MINUTE)
 ),
 MaxDate AS (
     SELECT MAX(date) as last_game_date FROM RawGames
@@ -21,7 +20,7 @@ MaxDate AS (
 PointDeductions AS (
     SELECT team, SUM(pts) as total_deducted
     FROM `table.ddctn`
-    WHERE season = {season} AND date <= (SELECT COALESCE(last_game_date, CAST(CURRENT_DATE() AS DATE)) FROM MaxDate)
+    WHERE season = {season} AND date <= (SELECT COALESCE(last_game_date, CAST(CURRENT_DATE('Asia/Jerusalem') AS DATE)) FROM MaxDate)
     GROUP BY team
 ),
 KizuzCalc AS (
