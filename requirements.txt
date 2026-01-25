@@ -3,3 +3,4 @@ google-cloud-bigquery
 pandas
 db-dtypes
 pyarrow
+google-oauth2
