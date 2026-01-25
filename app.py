@@ -4,15 +4,15 @@ from google.oauth2 import service_account
 import os
 import glob
 
-# 1. הגדרות דף - הלוגו מופיע רק כאן (באייקון הלשונית)
-st.set_page_config(page_title="מערכת נתוני כדורגל", page_icon="logo.png", layout="wide")
-
 # ייבוא הממשקים והלוגיקה
 from logic import apply_custom_style, reset_params
 from tpscr_ui import show_tpscr_interface
 from heavy_ui import show_heavy_losses_interface
 from streaks_ui import show_streaks_interface
 from league_table_ui import show_league_table_interface 
+
+# 1. הגדרות דף - הלוגו מופיע רק כאן (באייקון הלשונית)
+st.set_page_config(page_title="מערכת נתוני כדורגל", page_icon="logo.png", layout="wide")
 
 apply_custom_style()
 
