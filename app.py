@@ -155,12 +155,14 @@ with st.sidebar:
 """, unsafe_allow_html=True)
 
     sql_files = glob.glob("*.sql")
-    query_names = {os.path.basename(f).replace('.sql', '').replace('_', ' ').title(): f for f in sql_files}
-    
-    if 'active_query' not in st.session_state:
-    # מחפש קובץ שמכיל את המילה league_table
-    table_file = next((f for f in sql_files if "league_table" in f), sql_files[0])
-    st.session_state.active_query = table_file
+query_names = {os.path.basename(f).replace('.sql', '').replace('_', ' ').title(): f for f in sql_files}
+
+# 2. הגדרת ברירת המחדל (שים לב להזחה מתחת ל-if)
+if 'active_query' not in st.session_state:
+    if sql_files:
+        # מחפש קובץ עם השם league_table, אם לא מוצא לוקח את הראשון ברשימה
+        table_file = next((f for f in sql_files if "league_table" in f), sql_files[0])
+        st.session_state.active_query = table_file
 
     selected_name = st.radio(
         "בחר מנוע ניתוח:", 
