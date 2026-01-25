@@ -4,7 +4,7 @@ from google.oauth2 import service_account
 import os
 import glob
 
-# 1. הגדרות דף - חייב להיות ראשון
+# 1. הגדרות דף - הלוגו מופיע רק כאן (באייקון הלשונית)
 st.set_page_config(page_title="מערכת נתוני כדורגל", page_icon="logo.png", layout="wide")
 
 # ייבוא הממשקים והלוגיקה
@@ -30,16 +30,11 @@ def get_bigquery_client():
 
 client = get_bigquery_client()
 
-# 3. פונקציות נתונים (הזרקת ה-client)
+# 3. פונקציות נתונים
 @st.cache_data(ttl=3600)
 def get_season_data():
     try:
-        query = """
-            SELECT season, MAX(week) as max_week 
-            FROM `tavla-440015.table.srtdgms` 
-            WHERE CAST(date AS TIMESTAMP) <= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 150 MINUTE)
-            GROUP BY season ORDER BY season DESC
-        """
+        query = "SELECT season, MAX(week) as max_week FROM `tavla-440015.table.srtdgms` GROUP BY season ORDER BY season DESC"
         df = client.query(query).to_dataframe()
         return df.set_index('season')['max_week'].to_dict()
     except:
@@ -54,31 +49,176 @@ def get_filter_options():
     except:
         return {}, {}
 
-# 4. תפריט צד וטעינת SQL
-st.sidebar.title("⚽ תפריט שאילתות")
-# מחפש קבצים בתיקייה הראשית (כפי שהעלית)
-all_files = glob.glob("*.sql")
-all_queries = {f: f.replace(".sql", "").replace("_", " ").upper() for f in all_files}
+team_opts, stadium_opts = get_filter_options()
 
-if not st.session_state.get('active_query') and all_queries:
-    st.session_state.active_query = "league_table.sql" if "league_table.sql" in all_queries else list(all_queries.keys())[0]
 
-for f_path, name in sorted(all_queries.items()):
-    if st.sidebar.button(name, key=f_path):
-        st.session_state.active_query = f_path
-        st.rerun()
+st.markdown(f"""
+    <style>
+    /* צמצום השטח המת העליון */
+    .block-container {{
+        padding-top: 1.5rem !important;
+    }}
+    
+    @media (max-width: 768px) {{
+        /* מציאת כפתור התפריט ועיצובו בכחול */
+        header button {{
+            background-color: #3b82f6 !important;
+            color: white !important;
+            border-radius: 50% !important;
+            width: 45px !important;
+            height: 45px !important;
+            position: fixed !important;
+            top: 10px !important;
+            right: 10px !important;
+            z-index: 999999 !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
+        }}
+        
+        header button svg {{
+            fill: white !important;
+        }}
 
-# 5. ניתוב לממשקים
-if client and 'active_query' in st.session_state:
+        /* עיצוב המילה תפריט שתופיע מתחת */
+        #custom-menu-label {{
+            position: fixed;
+            top: 58px;
+            right: 10px;
+            width: 45px;
+            text-align: center;
+            color: #3b82f6;
+            font-size: 11px;
+            font-weight: bold;
+            z-index: 999999;
+            pointer-events: none;
+            direction: rtl;
+        }}
+    }}
+    </style>
+
+    <script>
+    /* פונקציה להזרקת המילה תפריט בצורה חסינה */
+    function injectMenuLabel() {{
+        if (window.innerWidth <= 768) {{
+            // בדיקה אם הלייבל כבר קיים כדי לא לשכפל
+            if (!document.getElementById('custom-menu-label')) {{
+                var label = document.createElement('div');
+                label.id = 'custom-menu-label';
+                label.innerText = 'תפריט';
+                document.body.appendChild(label);
+            }}
+        }}
+    }}
+
+    // הרצה מיידית ובכל שינוי גודל או ניווט
+    injectMenuLabel();
+    setInterval(injectMenuLabel, 1000); // מוודא שזה מופיע גם אם הדף מתרנדר מחדש
+
+    /* לוגו לאייפון */
+    var link = document.createElement('link');
+    link.rel = 'apple-touch-icon';
+    link.href = 'logo.png';
+    document.getElementsByTagName('head')[0].appendChild(link);
+    </script>
+""", unsafe_allow_html=True)
+
+# --- הגדרות Sidebar ---
+with st.sidebar:
+    # אין כאן st.image - הלוגו הוסר מהתפריט
+    st.header("🔍 הגדרות גלובליות ⚙️")
+    
+    team_names = sorted(list(team_opts.keys()))
+    full_team_list = ["ללא"] + team_names
+    
+    default_ix = 0
+    for i, name in enumerate(full_team_list):
+        if name != "ללא" and team_opts.get(name) == 11:
+            default_ix = i
+            break
+
+    current_team = st.selectbox("קבוצת ברירת מחדל:", options=full_team_list, index=default_ix)
+    
+    st.write("---")
+    
+    # העיצוב המקורי של כפתורי הרדיו שלך
+    st.markdown(f"""
+    <style>
+    /* צמצום השטח המת העליון */
+    .block-container {{
+        padding-top: 1.5rem !important;
+    }}
+    
+    /* עיצוב כפתור התפריט במובייל */
+    @media (max-width: 768px) {{
+        button[data-testid="stSidebarCollapseIcon"] {{
+            background-color: #3b82f6 !important;
+            color: white !important;
+            border-radius: 50% !important;
+            width: 48px !important;
+            height: 48px !important;
+            position: fixed !important;
+            top: 15px !important;
+            right: 15px !important;
+            z-index: 99999 !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }}
+        
+        button[data-testid="stSidebarCollapseIcon"] svg {{
+            fill: white !important;
+            width: 24px !important;
+            height: 24px !important;
+        }}
+
+        /* הוספת המילה "תפריט" מתחת לכפתור */
+        button[data-testid="stSidebarCollapseIcon"]::after {{
+            content: "תפריט";
+            position: absolute;
+            bottom: -22px;
+            right: 50%;
+            transform: translateX(50%);
+            font-size: 12px;
+            color: #3b82f6;
+            font-weight: bold;
+            white-space: nowrap;
+        }}
+    }}
+    </style>
+
+    <script>
+    /* הוספת לוגו לאייפון (Apple Touch Icon) */
+    var link = document.createElement('link');
+    link.rel = 'apple-touch-icon';
+    link.href = 'logo.png';
+    document.getElementsByTagName('head')[0].appendChild(link);
+    </script>
+""", unsafe_allow_html=True)
+
+    sql_files = glob.glob("*.sql")
+    query_names = {os.path.basename(f).replace('.sql', '').replace('_', ' ').title(): f for f in sql_files}
+    
+    if 'active_query' not in st.session_state:
+        st.session_state.active_query = list(query_names.values())[0]
+
+    selected_name = st.radio(
+        "בחר מנוע ניתוח:", 
+        list(query_names.keys()),
+        index=list(query_names.values()).index(st.session_state.active_query)
+    )
+    st.session_state.active_query = query_names[selected_name]
+
+# 4. ניתוב (Routing)
+if 'active_query' in st.session_state:
     active = st.session_state.active_query
     with open(active, 'r', encoding='utf-8-sig') as f:
         sql_template = f.read()
-    
+
     if "league_table" in active:
-        show_league_table_interface(client, sql_template, get_season_data)
+        show_league_table_interface(client, sql_template, get_season_data, current_team)
     elif "tpscr" in active:
-        show_tpscr_interface(client, sql_template, get_season_data, get_filter_options, reset_params)
+        show_tpscr_interface(client, sql_template, get_season_data, team_opts, stadium_opts, reset_params, current_team)
     elif "streaks" in active:
-        show_streaks_interface(client, sql_template, reset_params)
+        show_streaks_interface(client, sql_template, team_opts, reset_params, current_team, stadium_opts)
     elif "heavy_losses" in active:
-        show_heavy_losses_interface(client, sql_template)
+        show_heavy_losses_interface(client, sql_template, team_opts, current_team)
