@@ -1,34 +1,22 @@
 import streamlit as st
 from google.cloud import bigquery
-from google.oauth2 import service_account
 import os
 import glob
 
-# ייבוא הממשקים והלוגיקה
+# ייבוא הממשקים
 from logic import apply_custom_style, reset_params
 from tpscr_ui import show_tpscr_interface
 from heavy_ui import show_heavy_losses_interface
 from streaks_ui import show_streaks_interface
 from league_table_ui import show_league_table_interface 
 
-# 1. הגדרות דף - הלוגו מופיע רק כאן (באייקון הלשונית)
+# 1. הגדרות דף
 st.set_page_config(page_title="מערכת נתוני כדורגל", page_icon="logo.png", layout="wide")
-
 apply_custom_style()
 
-# 2. חיבור ל-BigQuery (מותאם לענן)
-def get_bigquery_client():
-    if "gcp_service_account" in st.secrets:
-        info = dict(st.secrets["gcp_service_account"])
-        info["private_key"] = info["private_key"].replace("\\n", "\n")
-        credentials = service_account.Credentials.from_service_account_info(info)
-        return bigquery.Client(credentials=credentials, project=info["project_id"])
-    elif os.path.exists("creds.json"):
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "creds.json"
-        return bigquery.Client()
-    return None
-
-client = get_bigquery_client()
+# 2. חיבור ל-BigQuery
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "creds.json"
+client = bigquery.Client()
 
 # 3. פונקציות נתונים
 @st.cache_data(ttl=3600)
@@ -49,40 +37,62 @@ def get_filter_options():
     except:
         return {}, {}
 
+# טעינת המילונים
 team_opts, stadium_opts = get_filter_options()
 
-
+# --- עיצוב CSS מינימלי למניעת שטח מת והבלטת תפריט מובייל ---
 st.markdown("""
     <style>
-    /* ביטול השטח המת למעלה */
-    .block-container {
-        padding-top: 2rem !important;
-    }
-
-    /* הבלטת כפתור התפריט (החצים) במובייל */
+    .block-container { padding-top: 2rem !important; }
+    
     @media (max-width: 768px) {
-        /* גורם לכפתור המקורי להיות כחול וגדול */
         button[data-testid="stSidebarCollapseIcon"] {
             background-color: #3b82f6 !important;
             color: white !important;
-            border-radius: 8px !important;
-            width: 40px !important;
-            height: 40px !important;
+            border-radius: 50% !important;
+            width: 45px !important;
+            height: 45px !important;
             position: fixed !important;
             top: 10px !important;
             right: 10px !important;
-            z-index: 99999;
+            z-index: 99999 !important;
         }
-        button[data-testid="stSidebarCollapseIcon"] svg {
-            fill: white !important;
-        }
+        button[data-testid="stSidebarCollapseIcon"] svg { fill: white !important; }
+    }
+
+    /* עיצוב כפתורי הרדיו ב-sidebar */
+    div[data-testid="stSidebar"] div[role="radiogroup"] {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    div[data-testid="stSidebar"] div[role="radiogroup"] > label {
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        padding: 10px 15px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    div[data-testid="stSidebar"] div[role="radiogroup"] [data-checked="true"] > div {
+        font-weight: bold;
+        color: #3b82f6;
     }
     </style>
 """, unsafe_allow_html=True)
 
+# --- לוגיקת בחירת קובץ ---
+sql_files = glob.glob("*.sql")
+query_names = {os.path.basename(f).replace('.sql', '').replace('_', ' ').title(): f for f in sql_files}
+
+# הכרחת הטבלה להיפתח ראשונה
+if 'active_query' not in st.session_state:
+    if sql_files:
+        table_file = next((f for f in sql_files if "league_table" in f), sql_files[0])
+        st.session_state.active_query = table_file
+
 # --- הגדרות Sidebar ---
 with st.sidebar:
-    # אין כאן st.image - הלוגו הוסר מהתפריט
     st.header("🔍 הגדרות גלובליות ⚙️")
     
     team_names = sorted(list(team_opts.keys()))
@@ -95,83 +105,17 @@ with st.sidebar:
             break
 
     current_team = st.selectbox("קבוצת ברירת מחדל:", options=full_team_list, index=default_ix)
-    
     st.write("---")
     
-    # העיצוב המקורי של כפתורי הרדיו שלך
-    st.markdown(f"""
-    <style>
-    /* צמצום השטח המת העליון */
-    .block-container {{
-        padding-top: 1.5rem !important;
-    }}
-    
-    /* עיצוב כפתור התפריט במובייל */
-    @media (max-width: 768px) {{
-        button[data-testid="stSidebarCollapseIcon"] {{
-            background-color: #3b82f6 !important;
-            color: white !important;
-            border-radius: 50% !important;
-            width: 48px !important;
-            height: 48px !important;
-            position: fixed !important;
-            top: 15px !important;
-            right: 15px !important;
-            z-index: 99999 !important;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }}
-        
-        button[data-testid="stSidebarCollapseIcon"] svg {{
-            fill: white !important;
-            width: 24px !important;
-            height: 24px !important;
-        }}
+    if query_names:
+        selected_name = st.radio(
+            "בחר מנוע ניתוח:", 
+            list(query_names.keys()),
+            index=list(query_names.values()).index(st.session_state.active_query)
+        )
+        st.session_state.active_query = query_names[selected_name]
 
-        /* הוספת המילה "תפריט" מתחת לכפתור */
-        button[data-testid="stSidebarCollapseIcon"]::after {{
-            content: "תפריט";
-            position: absolute;
-            bottom: -22px;
-            right: 50%;
-            transform: translateX(50%);
-            font-size: 12px;
-            color: #3b82f6;
-            font-weight: bold;
-            white-space: nowrap;
-        }}
-    }}
-    </style>
-
-    <script>
-    /* הוספת לוגו לאייפון (Apple Touch Icon) */
-    var link = document.createElement('link');
-    link.rel = 'apple-touch-icon';
-    link.href = 'logo.png';
-    document.getElementsByTagName('head')[0].appendChild(link);
-    </script>
-""", unsafe_allow_html=True)
-
-    sql_files = glob.glob("*.sql")
-query_names = {os.path.basename(f).replace('.sql', '').replace('_', ' ').title(): f for f in sql_files}
-
-# 2. הגדרת ברירת המחדל (שים לב להזחה מתחת ל-if)
-if 'active_query' not in st.session_state:
-    if sql_files:
-        # מחפש קובץ עם השם league_table, אם לא מוצא לוקח את הראשון ברשימה
-        table_file = next((f for f in sql_files if "league_table" in f), sql_files[0])
-        st.session_state.active_query = table_file
-
-    selected_name = st.radio(
-        "בחר מנוע ניתוח:", 
-        list(query_names.keys()),
-        index=list(query_names.values()).index(st.session_state.active_query)
-    )
-    st.session_state.active_query = query_names[selected_name]
-
-# 4. ניתוב (Routing)
+# 4. ניתוב (Routing) לממשקים
 if 'active_query' in st.session_state:
     active = st.session_state.active_query
     with open(active, 'r', encoding='utf-8-sig') as f:
