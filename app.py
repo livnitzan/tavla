@@ -158,7 +158,9 @@ with st.sidebar:
     query_names = {os.path.basename(f).replace('.sql', '').replace('_', ' ').title(): f for f in sql_files}
     
     if 'active_query' not in st.session_state:
-        st.session_state.active_query = list(query_names.values())[0]
+    # מחפש קובץ שמכיל את המילה league_table
+    table_file = next((f for f in sql_files if "league_table" in f), sql_files[0])
+    st.session_state.active_query = table_file
 
     selected_name = st.radio(
         "בחר מנוע ניתוח:", 
