@@ -52,73 +52,32 @@ def get_filter_options():
 team_opts, stadium_opts = get_filter_options()
 
 
-st.markdown(f"""
+st.markdown("""
     <style>
-    /* צמצום השטח המת העליון */
-    .block-container {{
-        padding-top: 1.5rem !important;
-    }}
-    
-    @media (max-width: 768px) {{
-        /* מציאת כפתור התפריט ועיצובו בכחול */
-        header button {{
+    /* ביטול השטח המת למעלה */
+    .block-container {
+        padding-top: 2rem !important;
+    }
+
+    /* הבלטת כפתור התפריט (החצים) במובייל */
+    @media (max-width: 768px) {
+        /* גורם לכפתור המקורי להיות כחול וגדול */
+        button[data-testid="stSidebarCollapseIcon"] {
             background-color: #3b82f6 !important;
             color: white !important;
-            border-radius: 50% !important;
-            width: 45px !important;
-            height: 45px !important;
+            border-radius: 8px !important;
+            width: 40px !important;
+            height: 40px !important;
             position: fixed !important;
             top: 10px !important;
             right: 10px !important;
-            z-index: 999999 !important;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
-        }}
-        
-        header button svg {{
+            z-index: 99999;
+        }
+        button[data-testid="stSidebarCollapseIcon"] svg {
             fill: white !important;
-        }}
-
-        /* עיצוב המילה תפריט שתופיע מתחת */
-        #custom-menu-label {{
-            position: fixed;
-            top: 58px;
-            right: 10px;
-            width: 45px;
-            text-align: center;
-            color: #3b82f6;
-            font-size: 11px;
-            font-weight: bold;
-            z-index: 999999;
-            pointer-events: none;
-            direction: rtl;
-        }}
-    }}
+        }
+    }
     </style>
-
-    <script>
-    /* פונקציה להזרקת המילה תפריט בצורה חסינה */
-    function injectMenuLabel() {{
-        if (window.innerWidth <= 768) {{
-            // בדיקה אם הלייבל כבר קיים כדי לא לשכפל
-            if (!document.getElementById('custom-menu-label')) {{
-                var label = document.createElement('div');
-                label.id = 'custom-menu-label';
-                label.innerText = 'תפריט';
-                document.body.appendChild(label);
-            }}
-        }}
-    }}
-
-    // הרצה מיידית ובכל שינוי גודל או ניווט
-    injectMenuLabel();
-    setInterval(injectMenuLabel, 1000); // מוודא שזה מופיע גם אם הדף מתרנדר מחדש
-
-    /* לוגו לאייפון */
-    var link = document.createElement('link');
-    link.rel = 'apple-touch-icon';
-    link.href = 'logo.png';
-    document.getElementsByTagName('head')[0].appendChild(link);
-    </script>
 """, unsafe_allow_html=True)
 
 # --- הגדרות Sidebar ---
