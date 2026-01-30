@@ -19,8 +19,12 @@ apply_custom_style()
 if "gcp_service_account" in st.secrets:
     from google.oauth2 import service_account
     info = dict(st.secrets["gcp_service_account"])
-    # תיקון ירידות שורה עבור המפתח הפרטי
-    info["private_key"] = info["private_key"].replace("\\n", "\n")
+    
+    # תיקון חסין תקלות למפתח הפרטי
+    raw_key = info["private_key"]
+    if "\\n" in raw_key:
+        info["private_key"] = raw_key.replace("\\n", "\n")
+    
     credentials = service_account.Credentials.from_service_account_info(info)
     client = bigquery.Client(credentials=credentials, project=info["project_id"])
 else:
