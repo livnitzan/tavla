@@ -2,6 +2,8 @@ import streamlit as st
 from google.cloud import bigquery
 import os
 import glob
+import json
+from google.oauth2 import service_account
 from admin_ui import show_admin_interface
 
 # ייבוא הממשקים
@@ -15,15 +17,30 @@ from league_table_ui import show_league_table_interface
 st.set_page_config(page_title="מערכת נתוני כדורגל", page_icon="logo.png", layout="wide")
 apply_custom_style()
 
-# 2. חיבור ל-BigQuery
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "creds.json"
-client = bigquery.Client()
+# 2. חיבור חכם ל-BigQuery (עובד גם במחשב וגם בענן)
+def get_bigquery_client():
+    # בדיקה האם אנחנו רצים מקומית (יש קובץ creds.json)
+    if os.path.exists("creds.json"):
+        return bigquery.Client.from_service_account_json("creds.json")
+    
+    # אם אין קובץ, ננסה למשוך מה-Secrets של Streamlit Cloud
+    elif "gcp_service_account" in st.secrets:
+        info = dict(st.secrets["gcp_service_account"])
+        credentials = service_account.Credentials.from_service_account_info(info)
+        return bigquery.Client(credentials=credentials, project=info["project_id"])
+    
+    else:
+        st.error("לא נמצאו פרטי התחברות ל-BigQuery!")
+        return None
+
+client = get_bigquery_client()
 
 # 3. פונקציות נתונים
 @st.cache_data(ttl=3600)
 def get_season_data():
+    if not client: return {2026: 19}
     try:
-        query = "SELECT season, MAX(week) as max_week FROM `tavla-440015.table.srtdgms` GROUP BY season ORDER BY season DESC"
+        query = "select season, max(week) as max_week from `tavla-440015.table.srtdgms` group by season order by season desc"
         df = client.query(query).to_dataframe()
         return df.set_index('season')['max_week'].to_dict()
     except:
@@ -35,12 +52,12 @@ def get_filter_options():
     try:
         # שאילתה שבודקת גם מי בליגת העל העונה
         query = """
-            SELECT DISTINCT t.team, t.team_id,
-                   MAX(CASE WHEN m.season = 2026 AND m.comp_id = 10 THEN 1 ELSE 0 END) as is_league_2026
-            FROM `tavla-440015.table.teams` t
-            LEFT JOIN `tavla-440015.table.srtdgms` m ON t.team_id = m.team OR t.team_id = m.rival
-            WHERE t.team_id < 100
-            GROUP BY t.team, t.team_id
+            select distinct t.team, t.team_id,
+                   max(case when m.season = 2026 and m.comp_id = 10 then 1 else 0 end) as is_league_2026
+            from `tavla-440015.table.teams` t
+            left join `tavla-440015.table.srtdgms` m on t.team_id = m.team or t.team_id = m.rival
+            where t.team_id < 100
+            group by t.team, t.team_id
         """
         df = client.query(query).to_dataframe()
         
@@ -65,8 +82,6 @@ def get_filter_options():
                 other_league_teams.append(all_teams[t_id])
         
         for name in sorted(other_league_teams):
-            final_team_dict[name] = all_teams.get(next(k for k, v in all_teams.items() if v == name), 0) # תיקון קטן למשיכת ה-ID
-            # דרך פשוטה יותר למשיכת ה-ID:
             t_id = [k for k, v in all_teams.items() if v == name][0]
             final_team_dict[name] = t_id
 
@@ -81,7 +96,7 @@ def get_filter_options():
             final_team_dict[name] = t_id
 
         # אצטדיונים
-        s_df = client.query("SELECT stad_id, stadium FROM `tavla-440015.table.stads` ORDER BY stadium").to_dataframe()
+        s_df = client.query("select stad_id, stadium from `tavla-440015.table.stads` order by stadium").to_dataframe()
         stadium_dict = dict(zip(s_df['stadium'], s_df['stad_id']))
         
         return final_team_dict, stadium_dict
