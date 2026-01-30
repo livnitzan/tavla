@@ -2,8 +2,6 @@ import streamlit as st
 from google.cloud import bigquery
 import os
 import glob
-import json
-from google.oauth2 import service_account
 from admin_ui import show_admin_interface
 
 # ייבוא הממשקים
@@ -17,28 +15,22 @@ from league_table_ui import show_league_table_interface
 st.set_page_config(page_title="מערכת נתוני כדורגל", page_icon="logo.png", layout="wide")
 apply_custom_style()
 
-# 2. חיבור חכם ל-BigQuery (עובד גם במחשב וגם בענן)
-def get_bigquery_client():
-    # בדיקה האם אנחנו רצים מקומית (יש קובץ creds.json)
-    if os.path.exists("creds.json"):
-        return bigquery.Client.from_service_account_json("creds.json")
-    
-    # אם אין קובץ, ננסה למשוך מה-Secrets של Streamlit Cloud
-    elif "gcp_service_account" in st.secrets:
-        info = dict(st.secrets["gcp_service_account"])
-        credentials = service_account.Credentials.from_service_account_info(info)
-        return bigquery.Client(credentials=credentials, project=info["project_id"])
-    
-    else:
-        st.error("לא נמצאו פרטי התחברות ל-BigQuery!")
-        return None
-
-client = get_bigquery_client()
+# 2. חיבור ל-BigQuery
+if "gcp_service_account" in st.secrets:
+    from google.oauth2 import service_account
+    info = dict(st.secrets["gcp_service_account"])
+    # תיקון ירידות שורה עבור המפתח הפרטי
+    info["private_key"] = info["private_key"].replace("\\n", "\n")
+    credentials = service_account.Credentials.from_service_account_info(info)
+    client = bigquery.Client(credentials=credentials, project=info["project_id"])
+else:
+    # הגדרת נתיב לקובץ מקומי במחשב
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "creds.json"
+    client = bigquery.Client()
 
 # 3. פונקציות נתונים
 @st.cache_data(ttl=3600)
 def get_season_data():
-    if not client: return {2026: 19}
     try:
         query = "select season, max(week) as max_week from `tavla-440015.table.srtdgms` group by season order by season desc"
         df = client.query(query).to_dataframe()
@@ -50,7 +42,6 @@ def get_season_data():
 def get_filter_options():
     if not client: return {}, {}
     try:
-        # שאילתה שבודקת גם מי בליגת העל העונה
         query = """
             select distinct t.team, t.team_id,
                    max(case when m.season = 2026 and m.comp_id = 10 then 1 else 0 end) as is_league_2026
@@ -61,21 +52,15 @@ def get_filter_options():
         """
         df = client.query(query).to_dataframe()
         
-        # מילון עזר
         all_teams = dict(zip(df['team_id'], df['team']))
         league_2026_ids = set(df[df['is_league_2026'] == 1]['team_id'])
-
-        # 1. הגדרת חמש הגדולות (VIP)
         vip_ids = [11, 12, 17, 25, 36]
-        
         final_team_dict = {}
 
-        # א. הוספת ה-VIP לפי הסדר שנתת
         for t_id in vip_ids:
             if t_id in all_teams:
                 final_team_dict[all_teams[t_id]] = t_id
 
-        # ב. הוספת יתר קבוצות ליגת העל 2026 (אלפביתית)
         other_league_teams = []
         for t_id in league_2026_ids:
             if t_id not in vip_ids and t_id in all_teams:
@@ -85,7 +70,6 @@ def get_filter_options():
             t_id = [k for k, v in all_teams.items() if v == name][0]
             final_team_dict[name] = t_id
 
-        # ג. הוספת כל השאר (אלפביתית)
         remaining_names = []
         for t_id, name in all_teams.items():
             if name not in final_team_dict:
@@ -95,7 +79,6 @@ def get_filter_options():
             t_id = [k for k, v in all_teams.items() if v == name][0]
             final_team_dict[name] = t_id
 
-        # אצטדיונים
         s_df = client.query("select stad_id, stadium from `tavla-440015.table.stads` order by stadium").to_dataframe()
         stadium_dict = dict(zip(s_df['stadium'], s_df['stad_id']))
         
@@ -104,48 +87,39 @@ def get_filter_options():
         st.error(f"Error: {e}")
         return {}, {}
 
-# טעינת הנתונים
 team_opts, stadium_opts = get_filter_options()
 
 # --- הגדרות Sidebar ---
 with st.sidebar:
     st.header("🔍 הגדרות גלובליות ⚙️")
     
-    # 1. בחירת קבוצת ברירת מחדל
     team_names = list(team_opts.keys())
     full_team_list = ["ללא"] + team_names
     current_team = st.selectbox("קבוצת ברירת מחדל:", options=full_team_list, index=0)
     
     st.write("---")
     
-    # 2. הכנת רשימת מנועי הניתוח מקבצי ה-SQL
     sql_files = glob.glob("*.sql")
     query_names = {os.path.basename(f).replace('.sql', '').replace('_', ' ').title(): f for f in sql_files}
     
-    # 3. הוספת אופציית הניהול לרשימה
     analysis_options = list(query_names.keys())
     admin_option = "🔧 ניהול מערכת"
     full_options = analysis_options + [admin_option]
     
-    # הגדרת ברירת מחדל ראשונית אם עדיין אין
     if 'selected_mode' not in st.session_state:
         st.session_state.selected_mode = full_options[0]
 
-    # 4. רכיב הבחירה (Radio)
     selected_name = st.radio(
         "בחר מנוע ניתוח:", 
         full_options, 
         index=full_options.index(st.session_state.selected_mode)
     )
     
-    # עדכון ה-session_state
     st.session_state.selected_mode = selected_name
     
-    # אם נבחר מנוע ניתוח (קובץ SQL), נעדכן את ה-active_query
     if selected_name in query_names:
         st.session_state.active_query = query_names[selected_name]
     else:
-        # במצב ניהול, אנחנו לא צריכים קובץ SQL פעיל
         st.session_state.active_query = "admin"
 
 # 4. ניתוב (Routing)
@@ -154,7 +128,6 @@ if st.session_state.selected_mode == "🔧 ניהול מערכת":
 else:
     active = st.session_state.active_query
     
-    # וידוא שיש קובץ פעיל לפני פתיחה
     if active and active != "admin":
         with open(active, 'r', encoding='utf-8-sig') as f:
             sql_template = f.read()
