@@ -2,50 +2,53 @@ import streamlit as st
 import pandas as pd
 
 def apply_custom_style():
-    """תיקון סופי לתפריט צף ויישור לימין"""
+    """תיקון לסליידר משובש ויישור לימין של תוכן האפליקציה"""
+    import streamlit as st
     st.markdown("""
         <style>
-        /* יישור לימין של התוכן המרכזי בלבד */
+        /* יישור כללי לימין של התוכן */
         [data-testid="stMain"] .block-container {
             direction: RTL;
             text-align: right;
         }
 
-        /* יישור התוכן בתוך הסיידבר בלי לשבור את אנימציית הסגירה שלו */
+        /* יישור התוכן בתוך הסיידבר */
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
             direction: RTL;
             text-align: right;
         }
+
+        /* תיקון לסליידר - כפיית כיוון שמאל-לימין לרכיב עצמו למניעת שיבוש חזותי */
+        div[data-testid="stSlider"] {
+            direction: LTR !important;
+        }
         
-        /* מניעת ציפה של טקסט כשהסיידבר סגור */
-        [data-testid="stSidebar"] {
-            overflow-x: hidden;
+        /* החזרת הכותרת של הסליידר לימין */
+        div[data-testid="stSlider"] label {
+            direction: RTL !important;
+            text-align: right !important;
+            display: block;
+            width: 100%;
         }
 
-        /* כפתורים אפורים נייטרליים (כמו במחשב שלך) */
+        /* כפתורים אפורים נייטרליים */
         .stButton>button { 
             width: 100%; border-radius: 5px; 
             background-color: #F8F9FA !important; color: #495057 !important;
             border: 1px solid #CED4DA !important;
         }
         
-        .stButton>button:hover {
-            background-color: #E2E6EA !important;
-            border-color: #ADB5BD !important;
-        }
-
-        /* הודעות מערכת בכחול בהיר תואם */
+        /* הודעות מערכת בכחול בהיר מהתמונה */
         div[data-testid="stNotification"] { 
             background-color: #E8F0FE !important; 
             color: #1967D2 !important; 
             border: 1px solid #D2E3FC !important;
         }
 
-        /* צבע כחול לסליידרים ורכיבי בחירה */
+        /* צבע כחול לסליידר ולתגיות */
         .stSlider [data-baseweb="slider"] > div > div {
             background-color: #4482eb !important;
         }
-        
         span[data-baseweb="tag"] {
             background-color: #4482eb !important;
         }
