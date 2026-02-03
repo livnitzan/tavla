@@ -1,20 +1,21 @@
 import streamlit as st
+import pandas as pd
 
 def apply_custom_style():
     """החלת עיצוב עם הכחול המדויק מהתמונה (RTL ונייטרליות)"""
     st.markdown("""
         <style>
-        /* RTL בסיסי */
+        /* RTL בסיסי לכל האפליקציה */
         .main { direction: RTL; text-align: right; }
         [data-testid="stSidebar"] { direction: RTL; text-align: right; }
         div.stApp { direction: RTL; }
 
-        /* צבע הכחול מהתמונה לתוויות נבחרות (כמו 'ליגת העל') */
+        /* גוון הכחול מהתמונה לרכיבי בחירה (Tags) */
         span[data-baseweb="tag"] {
             background-color: #4482eb !important;
         }
 
-        /* צבע לטקסט של תוויות (Labels) */
+        /* צבע הטקסט של תוויות (Labels) */
         .stSelectbox label, .stMultiSelect label, .stRadio label {
             color: #31333F !important;
             font-weight: 500;
@@ -41,9 +42,32 @@ def apply_custom_style():
             border: 1px solid #D2E3FC !important;
         }
 
-        /* צבע כחול לסליידר ולכפתורי רדיו */
+        /* צבע כחול לסליידרים, כפתורי רדיו וצ'קבוקסים */
         .stSlider [data-baseweb="slider"] > div > div {
             background-color: #4482eb !important;
         }
+        
+        /* תיקון צבע ל-Radio buttons שנבחרו */
+        div[data-testid="stMarkdownContainer"] p {
+            font-size: 14px;
+        }
         </style>
         """, unsafe_allow_html=True)
+
+def reset_params():
+    """איפוס פרמטרים וחזרה למצב נקי תוך שמירת העמוד הנוכחי"""
+    active = st.session_state.get('active_query')
+    selected = st.session_state.get('selected_mode')
+    
+    for key in list(st.session_state.keys()):
+        # לא מוחקים משתני מערכת של Streamlit
+        if not key.startswith('_'):
+            del st.session_state[key]
+        
+    if active: 
+        st.session_state.active_query = active
+    if selected:
+        st.session_state.selected_mode = selected
+        
+    st.session_state.custom_conditions = []
+    st.rerun()
