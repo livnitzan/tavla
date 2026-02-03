@@ -1,62 +1,57 @@
 import streamlit as st
 
 def apply_custom_style():
-    import streamlit as st
+    """החלת עיצוב CSS מנקודת המוצא (RTL, כפתורים אפורים, הודעות כחולות)"""
     st.markdown("""
         <style>
-            /* צבע כפתורים ראשי */
-            .stButton>button {
-                background-color: #1e429f;
-                color: white;
-                border-radius: 8px;
-                border: none;
-                transition: 0.3s;
-            }
-            .stButton>button:hover {
-                background-color: #16367c;
-                border: none;
-                color: white;
-            }
-            
-            /* עיצוב כותרות */
-            h1, h2, h3, h4 {
-                color: #1e429f !important;
-            }
-            
-            /* עיצוב Sidebar */
-            [data-testid="stSidebar"] {
-                background-color: #f0f7ff;
-            }
-            
-            /* עיצוב הודעות מידע (השורות הכחולות שביקשת) */
-            .stAlert {
-                background-color: #e1effe;
-                color: #1e429f;
-                border: 1px solid #b2d7ff;
-            }
+        .main { direction: RTL; text-align: right; }
+        [data-testid="stSidebar"] { direction: RTL; text-align: right; }
+        [data-testid="stDataFrame"] { direction: RTL; width: 100%; }
+        div[data-testid="stDataFrame"] > div { width: 100% !important; }
+        
+        /* כפתורים אפורים נייטרליים */
+        .stButton>button { 
+            width: 100%; border-radius: 5px; 
+            background-color: #F8F9FA !important; color: #495057 !important;
+            border: 1px solid #CED4DA !important;
+            transition: 0.2s;
+        }
+        
+        .stButton>button:hover {
+            background-color: #E2E6EA !important;
+            border-color: #ADB5BD !important;
+            color: #212529 !important;
+        }
+        
+        /* הודעות מערכת בכחול עדין */
+        div[data-testid="stNotification"] { 
+            background-color: #E3F2FD !important; 
+            color: #0D47A1 !important; 
+            border: 1px solid #BBDEFB !important;
+        }
 
-            /* עיצוב ה-Tabs */
-            button[data-baseweb="tab"] {
-                color: #666;
-            }
-            button[data-baseweb="tab"][aria-selected="true"] {
-                color: #1e429f !important;
-                border-bottom-color: #1e429f !important;
-            }
-
-            /* שינוי צבע ה-Progress Bar וה-Spinners */
-            .stProgress > div > div > div > div {
-                background-color: #1e429f;
-            }
+        /* תיקון לכפתור Primary (כמו 'הרץ ניתוח') שיישאר בולט אך תואם */
+        button[data-testid="baseButton-primary"] {
+            background-color: #0D47A1 !important;
+            color: white !important;
+            border: none !important;
+        }
         </style>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
 def reset_params():
     """איפוס פרמטרים וחזרה למצב נקי"""
+    # שמירת נתיב השאילתה הפעילה כדי לא לצאת מהעמוד
     active = st.session_state.get('active_query')
+    selected = st.session_state.get('selected_mode')
+    
     for key in list(st.session_state.keys()):
         del st.session_state[key]
+        
     if active: 
         st.session_state.active_query = active
+    if selected:
+        st.session_state.selected_mode = selected
+        
     st.session_state.custom_conditions = []
     st.rerun()
