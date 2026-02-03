@@ -1,6 +1,7 @@
 [theme]
-primaryColor = "#0D47A1"
+# הכחול הבהיר והרענן מהתמונה שלך
+primaryColor = "#4482eb"
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F8F9FA"
-textColor = "#212529"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#31333F"
 font = "sans serif"
