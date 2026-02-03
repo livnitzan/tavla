@@ -12,6 +12,7 @@ from tpscr_ui import show_tpscr_interface
 from heavy_ui import show_heavy_losses_interface
 from streaks_ui import show_streaks_interface
 from league_table_ui import show_league_table_interface
+from crowd_ui import show_crowd_interface
 
 # 1. הגדרות דף
 st.set_page_config(page_title="מערכת נתוני כדורגל", page_icon="logo.png", layout="wide")
@@ -114,7 +115,22 @@ with st.sidebar:
     
     # 2. הכנת רשימת מנועי הניתוח מקבצי ה-SQL
     sql_files = glob.glob("*.sql")
-    query_names = {os.path.basename(f).replace('.sql', '').replace('_', ' ').title(): f for f in sql_files}
+    
+    # מילון תרגום לשמות התצוגה בעברית
+    translation = {
+        "league_table": "טבלת הליגה",
+        "streaks_query": "רצפים",
+        "tpscr": "כובשים",
+        "heavy_losses": "תוצאות",
+        "crowd": "קהל"
+    }
+
+    # יצירת מיפוי בין השם שיוצג לבין הנתיב לקובץ
+    query_names = {}
+    for f in sql_files:
+        base = os.path.basename(f).replace('.sql', '')
+        display_name = translation.get(base, base.replace('_', ' ').title())
+        query_names[display_name] = f
     
     # 3. הוספת אופציית הניהול לרשימה
     analysis_options = list(query_names.keys())
@@ -148,11 +164,11 @@ if st.session_state.selected_mode == "🔧 ניהול מערכת":
 else:
     active = st.session_state.active_query
     
-    # וידוא שיש קובץ פעיל לפני פתיחה
     if active and active != "admin":
         with open(active, 'r', encoding='utf-8-sig') as f:
             sql_template = f.read()
 
+        # קריאה לממשקים השונים
         if "league_table" in active:
             show_league_table_interface(client, sql_template, get_season_data, current_team)
         elif "tpscr" in active:
@@ -161,3 +177,11 @@ else:
             show_streaks_interface(client, sql_template, team_opts, reset_params, current_team, stadium_opts)
         elif "heavy_losses" in active:
             show_heavy_losses_interface(client, sql_template, team_opts, current_team)
+        elif "crowd" in active:
+            # אתחול משתני State ייחודיים לקהל
+            if 'df_weeks_current' not in st.session_state:
+                st.session_state['df_weeks_current'] = None
+            if 'weeks_show_all' not in st.session_state:
+                st.session_state['weeks_show_all'] = False
+            
+            show_crowd_interface(client, sql_template, get_season_data, team_opts, stadium_opts, current_team)
