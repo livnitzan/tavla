@@ -22,13 +22,21 @@ def show_league_table_interface(client, sql_template_raw, get_season_data, curre
     RawGames AS (
         SELECT 
             s.team as team_id, s.season, s.week, s.date, s.gf, s.ga, s.res, s.stage,
+            t_rival.team as rival_name,
             CASE 
                 WHEN s.res = 'W' THEN (SELECT CASE WHEN IFNULL(`3pt`, TRUE) THEN 3 ELSE 2 END FROM SeasonRules)
                 WHEN s.res = 'D' AND s.forfeit IS NOT TRUE THEN 1
                 ELSE 0 
             END as pts_earned
         FROM `table.srtdgms` s
+        JOIN `table.teams` t_rival ON s.rival = t_rival.team_id
         WHERE s.season = {selected_season} AND s.comp_id = 10 AND s.week <= {selected_week} AND s.done IS TRUE
+    ),
+    FormCalc AS (
+        SELECT team_id, 
+               STRING_AGG(CONCAT(res, '|', rival_name, '|', gf, '-', ga), ';' ORDER BY date DESC LIMIT 5) as last_5_detailed
+        FROM RawGames
+        GROUP BY team_id
     ),
     CupFinal AS (
         SELECT 
@@ -85,11 +93,13 @@ def show_league_table_interface(client, sql_template_raw, get_season_data, curre
             WHEN (SELECT IFNULL(gd, TRUE) FROM SeasonRules) THEN CAST(CAST((ms.gf_sum - ms.ga_sum) AS INT64) AS STRING)
             ELSE CAST(ROUND(SAFE_DIVIDE(CAST(ms.gf_sum AS FLOAT64), CAST(ms.ga_sum AS FLOAT64)), 2) AS STRING)
         END as goal_stat,
-        COALESCE(pd.total_deducted, 0) as total_deducted
+        COALESCE(pd.total_deducted, 0) as total_deducted,
+        fc.last_5_detailed
     FROM `table.teams` t
     JOIN MainStats ms ON t.team_id = ms.team_id
     JOIN KizuzCalc kc ON t.team_id = kc.team_id
     JOIN PlayoffCalc pc ON t.team_id = pc.team_id
+    JOIN FormCalc fc ON t.team_id = fc.team_id
     LEFT JOIN PointDeductions pd ON t.team_id = pd.team
     LEFT JOIN SeasonRules sr ON 1=1
     CROSS JOIN CupFinal cf
@@ -109,6 +119,34 @@ def show_league_table_interface(client, sql_template_raw, get_season_data, curre
             pts_win = 3 if is_3pt else 2
             goal_label = "הפרש" if bool(d.get('is_gd_rule', True)) else "יחס"
 
+            def get_form_html(form_str):
+                if not form_str: return ""
+                games = form_str.split(';')
+                html = '<div class="form-wrapper">'
+                colors = {'W': '#2ecc71', 'D': '#f1c40f', 'L': '#e74c3c'}
+                
+                for game in games:
+                    parts = game.split('|')
+                    if len(parts) < 3: continue
+                    res, rival, score = parts[0], parts[1], parts[2]
+                    color = colors.get(res, '#eee')
+                    
+                    # הפיכת סדר התוצאה: אם קיבלנו "2-1", נהפוך ל-"1-2"
+                    # כך שבתצוגה מימין לשמאל זה ייראה נכון
+                    score_parts = score.split('-')
+                    if len(score_parts) == 2:
+                        reversed_score = f"{score_parts[1]}-{score_parts[0]}"
+                    else:
+                        reversed_score = score
+
+                    # שימוש בקידוד ישות HTML למרכאות כפולות
+                    clean_rival = rival.replace('"', '&quot;')
+                    tooltip_text = f"{clean_rival} {reversed_score}"
+                    
+                    html += f'<div class="form-dot" style="background-color: {color};" data-text="{tooltip_text}"></div>'
+                html += '</div>'
+                return html
+
             st.markdown("""
                 <style>
                     div[data-testid="column"] > div { display: flex; justify-content: center; }
@@ -124,7 +162,7 @@ def show_league_table_interface(client, sql_template_raw, get_season_data, curre
                     .row-champion { background-color: #f0f7ff !important; }
                     .row-relegation { background-color: #fff8f8 !important; }
                     .row-playoff { background-color: #fffef2 !important; }
-                    .team-cell { text-align: right !important; padding-right: 22px !important; position: relative; overflow: hidden; }
+                    .team-cell { text-align: right !important; padding-right: 22px !important; position: relative; overflow: visible !important; }
                     
                     .bar-container { position: absolute; right: 0; top: 0; bottom: 0; display: flex; flex-direction: row-reverse; gap: 1px; }
                     .bar { width: 4px; height: 100%; }
@@ -142,12 +180,52 @@ def show_league_table_interface(client, sql_template_raw, get_season_data, curre
                     .rank-cell { color: #ccc; width: 40px; }
                     .deduction-note { text-align: right; color: #888; font-size: 14px; margin-top: 10px; }
                     .clinch-bold { font-weight: bold !important; }
+
+                    /* --- Tooltip CSS --- */
+                    .form-wrapper { display: flex; gap: 4px; justify-content: center; direction: ltr; }
+                    .form-dot { 
+                        width: 10px; height: 10px; border-radius: 50%; 
+                        transition: transform 0.2s; cursor: pointer;
+                        position: relative;
+                    }
+                    .form-dot:hover { transform: scale(1.3); }
+                    
+                    .form-dot:hover::after {
+                        content: attr(data-text);
+                        position: absolute;
+                        bottom: 18px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background-color: #2c3e50;
+                        color: #fff;
+                        padding: 5px 10px;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        white-space: nowrap;
+                        z-index: 9999;
+                        pointer-events: none;
+                        font-family: sans-serif;
+                    }
+                    
+                    .form-dot:hover::before {
+                        content: '';
+                        position: absolute;
+                        bottom: 12px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        border-width: 6px;
+                        border-style: solid;
+                        border-color: #2c3e50 transparent transparent transparent;
+                        z-index: 9999;
+                        pointer-events: none;
+                    }
                 </style>
             """, unsafe_allow_html=True)
 
-            _, c_mid_a, c_mid_b, _ = st.columns([2.5, 1, 1, 2.5])
+            _, c_mid_a, c_mid_b, c_mid_c, _ = st.columns([2, 0.7, 0.7, 1, 2])
             with c_mid_a: show_stats = st.toggle("מאזן", key="t_stats_v54")
             with c_mid_b: show_goals = st.toggle("שערים", key="t_goals_v54")
+            with c_mid_c: show_form = st.toggle("5 אחרונים", value=True, key="t_form_v54")
 
             c_spacer, c_main, _ = st.columns([1, 4, 1])
             with c_main:
@@ -155,7 +233,9 @@ def show_league_table_interface(client, sql_template_raw, get_season_data, curre
                     html = f'<table class="league-table"><thead><tr class="header-row"><th class="header-cell rank-cell">#</th><th class="header-cell" style="text-align:right; padding-right:15px;">קבוצה</th>'
                     if show_stats: html += '<th class="header-cell">נצ\'</th><th class="header-cell">תי\'</th><th class="header-cell">הפ\'</th>'
                     if show_goals: html += '<th class="header-cell">זכות</th><th class="header-cell">חובה</th>'
-                    html += f'<th class="header-cell">מש\'</th><th class="header-cell">{goal_label}</th><th class="header-cell">נק\'</th></tr></thead><tbody>'
+                    html += f'<th class="header-cell">מש\'</th><th class="header-cell">{goal_label}</th><th class="header-cell">נק\'</th>'
+                    if show_form: html += '<th class="header-cell" style="width:85px;">פורמה</th>'
+                    html += '</tr></thead><tbody>'
                     
                     cur_max = (max_weeks - 3) if is_bottom_playoff else max_weeks
                     w_left = max(0, cur_max - selected_week)
@@ -225,7 +305,9 @@ def show_league_table_interface(client, sql_template_raw, get_season_data, curre
                         html += f'<td class="team-cell">{corner_html}<div class="bar-container">{inner_bars}</div>{row["team_display_name"]}</td>'
                         if show_stats: html += f'<td>{row["wins"]}</td><td>{row["draws"]}</td><td>{row["losses"]}</td>'
                         if show_goals: html += f'<td>{row["gf_sum"]}</td><td>{row["ga_sum"]}</td>'
-                        html += f'<td>{row["gp"]}</td><td class="stat-cell-ltr">{row["goal_stat"]}</td><td>{row["points"]}</td></tr>'
+                        html += f'<td>{row["gp"]}</td><td class="stat-cell-ltr">{row["goal_stat"]}</td><td>{row["points"]}</td>'
+                        if show_form: html += f'<td>{get_form_html(row["last_5_detailed"])}</td>'
+                        html += '</tr>'
                     return html + '</tbody></table>'
 
                 if int(d['stage_id']) in [11, 12, 13] and uplf > 0:
