@@ -2,3 +2,5 @@ streamlit
 google-cloud-bigquery
 pandas
 db-dtypes
+google-auth
+pandas-gbq
