@@ -32,14 +32,10 @@ def show_admin_interface(client):
 
     @st.cache_data(ttl=600)
     def load_metadata():
-        # טעינת כל השופטים לתרגום שמות
         ref_query = "SELECT ref_id, CONCAT(fname, ' ', lname) as full_name FROM `tavla-440015.table.refs`"
         all_refs = client.query(ref_query).to_dataframe()
-        
-        # טעינת כל הקבוצות לתרגום שמות (מבטיח שחדרה וקבוצות עבר יופיעו)
         team_query = "SELECT team_id, team FROM `tavla-440015.table.teams`"
         all_teams = client.query(team_query).to_dataframe()
-        
         return all_refs, all_teams
 
     all_refs, all_teams = load_metadata()
@@ -48,7 +44,6 @@ def show_admin_interface(client):
     ref_id_to_name = dict(zip(all_refs['ref_id'], all_refs['full_name']))
     ref_name_to_id = dict(zip(all_refs['full_name'], all_refs['ref_id']))
 
-    # משחקים להזנה בטווח התאריכים
     query_range = f"""
         SELECT game_id, date, week, comp_id, hteam, ateam, TRIM(side) as side, ref_id, done 
         FROM `tavla-440015.table.lgames` 
@@ -132,7 +127,6 @@ def show_admin_interface(client):
         st.divider()
         st.subheader("📝 עריכת שערים קיימים")
         
-        # פילטרים לחיפוש עם מפתחות ייחודיים
         f_col1, f_col2, f_col3, f_col4, f_col5, f_col6 = st.columns(6)
         with f_col1: s_season = st.text_input("עונה", key="f_season")
         with f_col2: s_week = st.text_input("מחזור", key="f_week")
@@ -179,31 +173,67 @@ def show_admin_interface(client):
         goals_df = client.query(goals_query).to_dataframe()
         goals_df['team_name'] = goals_df['steam'].map(team_id_to_name).fillna(goals_df['steam'])
         goals_df['type_label'] = goals_df['type'].apply(lambda x: id_to_goal_type.get(str(x).split('.')[0] if '.' in str(x) else str(x), ""))
+        goals_df['עדכון'] = False
         goals_df['מחיקה'] = False
 
-        # עמודת game_id ראשונה בקצה
         edited_goals = st.data_editor(goals_df, column_config={
             "game_id": st.column_config.NumberColumn("ID", disabled=True),
             "date": st.column_config.DateColumn("תאריך", disabled=True),
             "season": st.column_config.NumberColumn("עונה", disabled=True),
             "team_name": st.column_config.SelectboxColumn("קבוצה", options=all_teams['team'].tolist()),
             "type_label": st.column_config.SelectboxColumn("סוג", options=list(goal_type_options.keys())),
+            "עדכון": st.column_config.CheckboxColumn("לעדכן?"),
             "מחיקה": st.column_config.CheckboxColumn("למחוק?")
-        }, hide_index=True, column_order=("game_id", "date", "season", "week", "team_name", "gorder", "scorrer", "minute", "stoppage", "type_label", "ogscorrer", "מחיקה"), key="edit_goals_table")
+        }, hide_index=True, column_order=("game_id", "date", "season", "week", "team_name", "gorder", "scorrer", "minute", "stoppage", "type_label", "ogscorrer", "עדכון", "מחיקה"), key="edit_goals_table")
         
-        if st.button("💾 שמור שינויים / מחק שורות", key="save_edits_btn"):
+        if st.button("💾 בצע פעולות נבחרות", key="save_edits_btn"):
+            # 1. טיפול במחיקה
             to_delete = edited_goals[edited_goals['מחיקה'] == True]
             if not to_delete.empty:
-                if st.checkbox("אני מאשר מחיקה סופית", key="confirm_delete_checkbox"):
+                confirm = st.checkbox("⚠️ אשר מחיקה סופית של השורות המסומנות", key="confirm_delete_final")
+                if confirm:
                     for _, row in to_delete.iterrows():
                         client.query(f"DELETE FROM `tavla-440015.table.goals` WHERE game_id={int(row['game_id'])} AND gorder={int(row['gorder'])}").result()
-                    st.success("נמחק!"); st.cache_data.clear(); st.rerun()
+                    st.success(f"נמחקו {len(to_delete)} שורות")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.warning("יש לאשר את המחיקה")
+                    st.stop()
             
-            for i, row in edited_goals.iterrows():
-                if not row.equals(goals_df.iloc[i]) and not row['מחיקה']:
+            # 2. טיפול בעדכון
+            to_update = edited_goals[edited_goals['עדכון'] == True]
+            if not to_update.empty:
+                updated_count = 0
+                for _, row in to_update.iterrows():
+                    if row['מחיקה']: continue
+                        
                     curr_scorrer = str(row['scorrer']).strip()
+                    m_val = row['minute'] if pd.notna(row['minute']) else 0
+                    s_val = row['stoppage'] if pd.notna(row['stoppage']) else 0
+                    
                     final_type = "NULL" if (curr_scorrer in ["טכני", "עצמי"]) else goal_type_options[row['type_label']]
-                    og_sql = f"'{str(row['ogscorrer']).strip()}'" if (str(row['ogscorrer']).strip() and str(row['ogscorrer']) != 'None' and curr_scorrer == 'עצמי') else "NULL"
-                    update_sql = f"UPDATE `tavla-440015.table.goals` SET gorder={int(row['gorder'])}, steam={int(team_name_to_id.get(row['team_name'], row['steam']))}, scorrer='{row['scorrer']}', minute={row['minute'] if row['minute']>0 else 'NULL'}, stoppage={row['stoppage'] if row['stoppage']>0 else 'NULL'}, type={final_type}, ogscorrer={og_sql} WHERE game_id={int(goals_df.iloc[i]['game_id'])} AND gorder={int(goals_df.iloc[i]['gorder'])}"
+                    og_val_raw = str(row['ogscorrer']).strip()
+                    og_sql = f"'{og_val_raw}'" if (pd.notna(row['ogscorrer']) and og_val_raw != "" and og_val_raw != "None" and curr_scorrer == "עצמי") else "NULL"
+                    
+                    update_sql = f"""
+                        UPDATE `tavla-440015.table.goals` 
+                        SET gorder={int(row['gorder'])}, 
+                            steam={int(team_name_to_id.get(row['team_name'], row['steam']))}, 
+                            scorrer='{row['scorrer']}', 
+                            minute={int(m_val) if m_val > 0 else 'NULL'}, 
+                            stoppage={int(s_val) if s_val > 0 else 'NULL'}, 
+                            type={final_type}, 
+                            ogscorrer={og_sql} 
+                        WHERE game_id={int(row['game_id'])} 
+                        AND gorder={int(row['gorder'])}
+                    """
                     client.query(update_sql).result()
-            st.success("השינויים נשמרו!"); st.cache_data.clear(); st.rerun()
+                    updated_count += 1
+                
+                if updated_count > 0:
+                    st.success(f"עודכנו {updated_count} שורות בהצלחה!")
+                    st.cache_data.clear()
+                    st.rerun()
+            elif to_delete.empty:
+                st.info("לא נבחרו שורות לעדכון או מחיקה")
