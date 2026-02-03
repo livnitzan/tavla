@@ -2,33 +2,33 @@ import streamlit as st
 import pandas as pd
 
 def apply_custom_style():
-    """תיקון לסליידר משובש ויישור לימין של תוכן האפליקציה"""
-    import streamlit as st
+    """עיצוב נקי עם תיקון סליידר - צביעת הבחירה בלבד"""
     st.markdown("""
         <style>
-        /* יישור כללי לימין של התוכן */
-        [data-testid="stMain"] .block-container {
-            direction: RTL;
+        /* יישור טקסט לימין בלי לשבור מבנה */
+        .main, div[data-testid="stSidebar"] {
             text-align: right;
         }
 
-        /* יישור התוכן בתוך הסיידבר */
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-            direction: RTL;
-            text-align: right;
-        }
-
-        /* תיקון לסליידר - כפיית כיוון שמאל-לימין לרכיב עצמו למניעת שיבוש חזותי */
-        div[data-testid="stSlider"] {
-            direction: LTR !important;
-        }
-        
-        /* החזרת הכותרת של הסליידר לימין */
-        div[data-testid="stSlider"] label {
-            direction: RTL !important;
+        h1, h2, h3, h4, h5, h6, label, p, .stMarkdown {
             text-align: right !important;
-            display: block;
-            width: 100%;
+            direction: rtl !important;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+            text-align: right;
+            direction: rtl;
+        }
+
+        /* תיקון הסליידר: צביעת הטווח הנבחר בלבד (Inner track) */
+        /* אנחנו מבטלים את הצבע הכללי שנתנו קודם לכל הדיב */
+        div[data-testid="stSlider"] [data-baseweb="slider"] > div {
+            background-color: transparent !important;
+        }
+
+        /* צביעת הבר הפנימי (הבחירה) בכחול הנכון מהתמונה */
+        div[data-testid="stSlider"] [data-baseweb="slider"] div[style*="left"] {
+            background-color: #4482eb !important;
         }
 
         /* כפתורים אפורים נייטרליים */
@@ -38,17 +38,19 @@ def apply_custom_style():
             border: 1px solid #CED4DA !important;
         }
         
-        /* הודעות מערכת בכחול בהיר מהתמונה */
+        .stButton>button:hover {
+            background-color: #E2E6EA !important;
+            border-color: #ADB5BD !important;
+        }
+
+        /* הודעות מערכת בכחול בהיר */
         div[data-testid="stNotification"] { 
             background-color: #E8F0FE !important; 
             color: #1967D2 !important; 
             border: 1px solid #D2E3FC !important;
         }
 
-        /* צבע כחול לסליידר ולתגיות */
-        .stSlider [data-baseweb="slider"] > div > div {
-            background-color: #4482eb !important;
-        }
+        /* צבע לתגיות בחירה (Multi-select) */
         span[data-baseweb="tag"] {
             background-color: #4482eb !important;
         }
