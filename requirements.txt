@@ -4,3 +4,7 @@ pandas
 db-dtypes
 google-auth
 pandas-gbq
+pyarrow
+plotly
+matplotlib
+numpy
